@@ -13,7 +13,7 @@
   - `userRouter`: `me` → current profile.
   - `boardRouter`: `list`, `create`, `update`, `delete`, `reorder`.
   - `boardGameRouter`: `listByBoard`, `addToBoard`, `removeFromBoard`, `updateMetadata` (status/rating/notes), `reorderWithinBoard`.
-  - `gameRouter`: `getById`, `getBySteamAppId`, `searchCached` (DB only), `searchSteamAndCache` (lightweight, rate-limited warming; avoid spamming from UI).
+  - `gameRouter`: `getById`, `getBySteamAppId`, `searchCached` (DB only).
   - Pagination applies where returning lists; expect zod-validated inputs.
 
 - **Core Data Shapes (Prisma schema)**
@@ -25,7 +25,7 @@
 
 - **Usage guidance for Next.js**
   - Use Clerk SDK on web to obtain JWT and pass to tRPC client (set `Authorization` header).
-  - Respect rate limits: prefer `searchCached` for typeahead; only call `searchSteamAndCache` on explicit user action and debounce.
+  - Prefer backend-cached search for typeahead and lists; avoid client-side calls to external providers.
   - Boards/games are user-scoped: display only the caller’s boards unless `isPublic` (public viewing may come later).
   - Status/rating/notes live on `BoardGame`, not `Game`; when showing a game in a board, fetch boardGame metadata alongside game details.
   - Use cursor pagination for infinite scroll; stop when `nextCursor` is absent.
@@ -35,7 +35,7 @@
   - No image hosting keys are needed on the frontend; render URLs returned from `Game`.
 
 - **Operational expectations**
-  - Background sync jobs refresh game data; frontend should not rely on immediate freshness after adding new games unless using the warm-cache endpoint.
+  - Background sync jobs refresh game data; frontend should not rely on immediate freshness after adding new games.
   - Logging/metrics are backend concerns; frontend handles error states using returned codes/messages.
 
 - **Caveats/plan quirks**
