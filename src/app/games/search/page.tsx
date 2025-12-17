@@ -12,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { requestGameSearch } from "@/lib/client/game-search";
 import type { Game } from "@/lib/types/game";
 
-const PAGE_SIZE = 20;
+const INITIAL_PAGE_SIZE = 50;
+const MORE_PAGE_SIZE = 25;
 const DEBOUNCE_MS = 300;
 
 export default function GameSearchPage() {
@@ -25,6 +26,8 @@ export default function GameSearchPage() {
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
   const inflight = useRef<AbortController | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const lastRequestedCursor = useRef<string | undefined>(undefined);
 
   const startSearch = useCallback(
     async (term: string, { reset, cursor }: { reset: boolean; cursor?: string }) => {
@@ -37,6 +40,7 @@ export default function GameSearchPage() {
       if (reset) {
         setResults([]);
         setNextCursor(undefined);
+        lastRequestedCursor.current = undefined;
       }
 
       setError(null);
@@ -45,7 +49,7 @@ export default function GameSearchPage() {
       try {
         const data = await requestGameSearch({
           term,
-          limit: PAGE_SIZE,
+          limit: reset ? INITIAL_PAGE_SIZE : MORE_PAGE_SIZE,
           cursor,
           signal: controller.signal,
         });
@@ -82,6 +86,7 @@ export default function GameSearchPage() {
   }, [debouncedQuery, startSearch]);
 
   const hasMore = !!nextCursor;
+  const isLoadingMore = isLoading && results.length > 0;
 
   const headingSubtitle = useMemo(() => {
     if (!hasSearched) {
@@ -89,6 +94,30 @@ export default function GameSearchPage() {
     }
     return "Search results are pulled from the GoodGame backend.";
   }, [hasSearched]);
+
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    if (!searchTerm) return;
+    if (!hasMore) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const entry = entries[0];
+        if (!entry?.isIntersecting) return;
+        if (isLoading) return;
+        if (!nextCursor) return;
+        if (lastRequestedCursor.current === nextCursor) return;
+
+        lastRequestedCursor.current = nextCursor;
+        startSearch(searchTerm, { cursor: nextCursor, reset: false });
+      },
+      { rootMargin: "300px 0px" },
+    );
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+  }, [hasMore, isLoading, nextCursor, searchTerm, startSearch]);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-white">
@@ -149,25 +178,15 @@ export default function GameSearchPage() {
               <GameResultsGrid games={results} />
             )}
 
+            {isLoadingMore ? <GameResultsLoadingGrid /> : null}
+
             {!isLoading && results.length === 0 && hasSearched ? (
               <div className="rounded-xl border border-white/5 bg-white/5 px-4 py-6 text-sm text-indigo-50/80">
                 No matches yet. Try broadening your query.
               </div>
             ) : null}
 
-            <div className="flex items-center justify-between pt-2">
-              {hasMore ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
-                  disabled={isLoading}
-                  onClick={() => startSearch(searchTerm, { cursor: nextCursor, reset: false })}
-                >
-                  {isLoading ? "Loading..." : "Load more"}
-                </Button>
-              ) : null}
-            </div>
+            {hasMore ? <div ref={sentinelRef} className="h-1 w-full" /> : null}
           </div>
         </section>
       </div>

@@ -1,20 +1,20 @@
 # Frontend Integration Notes (Next.js React/TypeScript)
 
 - **Transport & Auth**
-  - tRPC over HTTPS; include `Authorization: Bearer <Clerk JWT>` on every user-specific call.
+  - REST over HTTPS; include `Authorization: Bearer <Clerk JWT>` on every protected/user-specific call.
   - Clerk JWT `sub` maps to `User.id`; backend auto-upserts the user record.
-  - tRPC error codes map to `UNAUTHORIZED`, `NOT_FOUND`, `BAD_REQUEST`, `CONFLICT`, `TOO_MANY_REQUESTS`.
+  - Prefer HTTP status-based handling: `401 Unauthorized`, `404 Not Found`, `400 Bad Request`, `409 Conflict`, `429 Too Many Requests`.
 
 - **Pagination**
   - Cursor pattern: input `{ limit, cursor? }`; response `{ items, nextCursor? }` for infinite scroll on boards/board games/game search.
 
-- **Routers & Procedures (planned)**
-  - `healthRouter`: `ping`.
-  - `userRouter`: `me` → current profile.
-  - `boardRouter`: `list`, `create`, `update`, `delete`, `reorder`.
-  - `boardGameRouter`: `listByBoard`, `addToBoard`, `removeFromBoard`, `updateMetadata` (status/rating/notes), `reorderWithinBoard`.
-  - `gameRouter`: `getById`, `getBySteamAppId`, `searchCached` (DB only).
-  - Pagination applies where returning lists; expect zod-validated inputs.
+- **Endpoints (current)**
+  - Health: `GET /health`.
+  - User (protected): `GET /api/user/me`.
+  - Boards (protected): `GET /api/boards`, `POST /api/boards`, `PATCH /api/boards/:id`, `DELETE /api/boards/:id`, `POST /api/boards/:id/reorder`.
+  - Board Games (protected): `GET /api/boards/:boardId/board-games`, `POST /api/boards/:boardId/board-games`, `PATCH /api/boards/:boardId/board-games/:gameId`, `DELETE /api/boards/:boardId/board-games/:gameId`, `POST /api/boards/:boardId/board-games/:gameId/reorder`.
+  - Games (public): `GET /api/games`, `GET /api/games/search`, `GET /api/games/:id`, `GET /api/games/by-igdb/:igdbId`, `GET /api/games/by-rawg/:rawgId`.
+  - Pagination applies where returning lists; pass `limit`/`cursor` as query params and stop when `nextCursor` is absent.
 
 - **Core Data Shapes (Prisma schema)**
   - `User`: `{ id: string (Clerk), email: string, name?: string, avatarUrl?: string, createdAt: Date }`.
@@ -24,9 +24,9 @@
   - Images are external URLs only; no uploads expected from frontend.
 
 - **Usage guidance for Next.js**
-  - Use Clerk SDK on web to obtain JWT and pass to tRPC client (set `Authorization` header).
+  - Use Clerk SDK on web to obtain JWT and send it on requests (set `Authorization` header).
   - Prefer backend-cached search for typeahead and lists; avoid client-side calls to external providers.
-  - Boards/games are user-scoped: display only the caller’s boards unless `isPublic` (public viewing may come later).
+  - Boards/games are user-scoped: display only the caller's boards unless `isPublic` (public viewing may come later).
   - Status/rating/notes live on `BoardGame`, not `Game`; when showing a game in a board, fetch boardGame metadata alongside game details.
   - Use cursor pagination for infinite scroll; stop when `nextCursor` is absent.
 

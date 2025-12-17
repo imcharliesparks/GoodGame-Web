@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 
+import { ArgusHttpError } from "@/lib/argus/http";
 import { searchCached } from "@/lib/data/games";
 import type { ApiResult, PaginatedResult } from "@/lib/types/api";
 import type { Game } from "@/lib/types/game";
@@ -8,12 +9,6 @@ const DEFAULT_LIMIT = 20;
 const MAX_LIMIT = 50;
 
 export async function GET(request: Request) {
-  const isProduction = process.env.NODE_ENV === "production";
-  const bypassAuth = !isProduction && process.env.BFF_BYPASS_AUTH !== "false";
-  const { userId, token } = bypassAuth
-    ? { userId: null as string | null, token: undefined as string | undefined }
-    : await getClerkAuth();
-
   const parsed = parseQuery(request);
   if ("error" in parsed) {
     return NextResponse.json<ApiResult<null>>(
@@ -22,18 +17,17 @@ export async function GET(request: Request) {
     );
   }
 
-  if (!bypassAuth && (!userId || !token)) {
-    return NextResponse.json<ApiResult<null>>(
-      { success: false, error: "Unauthorized" },
-      { status: 401 },
-    );
-  }
-
   try {
-    const data = await searchCached(parsed, { token });
+    const data = await searchCached(parsed);
+    const { nextCursor: rawNextCursor, ...rest } = data;
+    const nextCursor =
+      typeof rawNextCursor === "string" && rawNextCursor.length > 0
+        ? rawNextCursor
+        : undefined;
+
     return NextResponse.json<ApiResult<PaginatedResult<Game>>>({
       success: true,
-      data,
+      data: nextCursor ? { ...rest, nextCursor } : rest,
     });
   } catch (error) {
     return handleError(error);
@@ -50,7 +44,8 @@ function parseQuery(request: Request):
   const { searchParams } = new URL(request.url);
   const query = searchParams.get("q")?.trim();
   const limitParam = searchParams.get("limit");
-  const cursor = searchParams.get("cursor") ?? undefined;
+  const cursorRaw = searchParams.get("cursor");
+  const cursor = cursorRaw === null ? undefined : cursorRaw;
 
   if (!query) {
     return { error: "Search query (q) is required.", status: 400 };
@@ -70,8 +65,7 @@ function parseQuery(request: Request):
 
 function handleError(error: unknown) {
   const status = asHttpStatus(error) ?? 502;
-  const message =
-    error instanceof Error ? error.message : "Upstream tRPC error";
+  const message = error instanceof Error ? error.message : "Upstream error";
 
   if (error instanceof Error && error.message.includes("ARGUS_URL")) {
     return NextResponse.json<ApiResult<null>>(
@@ -85,7 +79,7 @@ function handleError(error: unknown) {
       {
         success: false,
         error:
-          "Failed to reach the tRPC backend. Check ARGUS_URL (must include http:// or https://) and ensure Argus is running.",
+          "Failed to reach the backend. Check ARGUS_URL (must include http:// or https://) and ensure Argus is running.",
       },
       { status: 502 },
     );
@@ -98,14 +92,6 @@ function handleError(error: unknown) {
 }
 
 function asHttpStatus(error: unknown) {
-  const value = (error as { data?: { httpStatus?: unknown } } | null)?.data
-    ?.httpStatus;
-  return typeof value === "number" ? value : undefined;
-}
-
-async function getClerkAuth() {
-  const { auth } = await import("@clerk/nextjs/server");
-  const { userId, getToken } = await auth();
-  const token = userId ? await getToken() : undefined;
-  return { userId, token };
+  if (error instanceof ArgusHttpError) return error.status;
+  return undefined;
 }
