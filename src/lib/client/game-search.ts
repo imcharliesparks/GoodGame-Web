@@ -17,7 +17,6 @@ export async function requestGameSearch({
   const params = new URLSearchParams({
     q: term,
     limit: String(limit),
-    mode: "cached",
   });
 
   if (cursor) {
