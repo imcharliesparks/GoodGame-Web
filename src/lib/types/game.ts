@@ -1,9 +1,9 @@
 export type Game = {
   id: string;
-  steamAppId?: number;
+  igdbId?: number;
   rawgId?: number;
   slug?: string;
-  source: "STEAM" | "RAWG";
+  source: "IGDB" | "RAWG";
   title: string;
   description?: string;
   coverUrl?: string;

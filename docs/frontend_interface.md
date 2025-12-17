@@ -20,7 +20,7 @@
   - `User`: `{ id: string (Clerk), email: string, name?: string, avatarUrl?: string, createdAt: Date }`.
   - `Board`: `{ id: ObjectId, userId: string, name: string, description?: string, order: number, isPublic: boolean, createdAt: Date }`.
   - `BoardGame`: `{ id: ObjectId, boardId: ObjectId, gameId: ObjectId, order: number, status: 'OWNED'|'PLAYING'|'COMPLETED'|'WISHLIST', rating?: number, notes?: string, addedAt: Date }`.
-  - `Game`: `{ id: ObjectId, steamAppId?: number, rawgId?: number, slug?: string, source: 'STEAM'|'RAWG', title: string, description?: string, coverUrl?: string, headerImageUrl?: string, backgroundImageUrl?: string, websiteUrl?: string, releaseDate?: Date, platforms: string[], genres: string[], tags: string[], developers: string[], publishers: string[], stores?: Json, ratings?: Json, screenshotUrls: string[], clipUrl?: string, metacritic?: number, esrbRating?: string, added?: number, updated?: Date, lastScrapedAt: Date }`.
+  - `Game`: `{ id: ObjectId, igdbId?: number, rawgId?: number, slug?: string, source: 'IGDB'|'RAWG', title: string, description?: string, coverUrl?: string, headerImageUrl?: string, backgroundImageUrl?: string, websiteUrl?: string, releaseDate?: Date, platforms: string[], genres: string[], tags: string[], developers: string[], publishers: string[], stores?: Json, ratings?: Json, screenshotUrls: string[], clipUrl?: string, metacritic?: number, esrbRating?: string, added?: number, updated?: Date, lastScrapedAt: Date }`.
   - Images are external URLs only; no uploads expected from frontend.
 
 - **Usage guidance for Next.js**
@@ -39,5 +39,5 @@
   - Logging/metrics are backend concerns; frontend handles error states using returned codes/messages.
 
 - **Caveats/plan quirks**
-  - Data source is MongoDB via Prisma; external IDs (`steamAppId`, `rawgId`) are not primary keys.
+  - Data source is MongoDB via Prisma; external IDs (`igdbId`, `rawgId`) are not primary keys.
   - Treat Clerk + MongoDB as current.
