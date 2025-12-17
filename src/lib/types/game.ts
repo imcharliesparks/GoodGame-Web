@@ -1,0 +1,28 @@
+export type Game = {
+  id: string;
+  steamAppId?: number;
+  rawgId?: number;
+  slug?: string;
+  source: "STEAM" | "RAWG";
+  title: string;
+  description?: string;
+  coverUrl?: string;
+  headerImageUrl?: string;
+  backgroundImageUrl?: string;
+  websiteUrl?: string;
+  releaseDate?: string | Date;
+  platforms: string[];
+  genres: string[];
+  tags: string[];
+  developers: string[];
+  publishers: string[];
+  stores?: unknown;
+  ratings?: unknown;
+  screenshotUrls: string[];
+  clipUrl?: string;
+  metacritic?: number;
+  esrbRating?: string;
+  added?: number;
+  updated?: string | Date;
+  lastScrapedAt: string | Date;
+};
