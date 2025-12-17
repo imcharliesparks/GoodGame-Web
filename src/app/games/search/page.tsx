@@ -34,24 +34,24 @@ export default function GameSearchPage() {
       const controller = new AbortController();
       inflight.current = controller;
 
-    if (reset) {
-      setResults([]);
-      setNextCursor(undefined);
-    }
+      if (reset) {
+        setResults([]);
+        setNextCursor(undefined);
+      }
 
-    setError(null);
-    setIsLoading(true);
+      setError(null);
+      setIsLoading(true);
 
-    try {
-      const data = await requestSearch(term, mode, cursor, controller.signal);
-      setHasSearched(true);
-      setActiveMode(mode);
-      setResults((prev) => (reset ? data.items : [...prev, ...data.items]));
-      setNextCursor(data.nextCursor);
-    } catch (err) {
-      if (controller.signal.aborted) return;
-      setHasSearched(true);
-      setError(err instanceof Error ? err.message : "Failed to fetch results.");
+      try {
+        const data = await requestSearch(term, mode, cursor, controller.signal);
+        setHasSearched(true);
+        setActiveMode(mode);
+        setResults((prev) => (reset ? data.items : [...prev, ...data.items]));
+        setNextCursor(data.nextCursor);
+      } catch (err) {
+        if (controller.signal.aborted) return;
+        setHasSearched(true);
+        setError(err instanceof Error ? err.message : "Failed to fetch results.");
       } finally {
         setIsLoading(false);
         setIsWarmLoading(false);
@@ -210,9 +210,9 @@ function ResultGrid({ games }: { games: Game[] }) {
                 {game.description || "No description available."}
               </p>
               <div className="flex flex-wrap gap-2 text-xs text-indigo-100/70">
-                {renderMeta(game.platforms)}
-                {renderMeta(game.genres)}
-                {renderMeta(game.publishers)}
+                {renderMeta(game.platforms, "platform")}
+                {renderMeta(game.genres, "genre")}
+                {renderMeta(game.publishers, "publisher")}
               </div>
               {game.releaseDate ? (
                 <p className="text-xs text-indigo-100/60">
@@ -250,10 +250,10 @@ function CoverImage({ url, title }: { url?: string; title: string }) {
   );
 }
 
-function renderMeta(values: string[] = []) {
-  return values.slice(0, 3).map((value) => (
+function renderMeta(values: string[] = [], keyPrefix: string) {
+  return values.slice(0, 3).map((value, index) => (
     <span
-      key={value}
+      key={`${keyPrefix}-${index}`}
       className="rounded-full bg-white/10 px-2 py-1 font-semibold uppercase tracking-wide text-indigo-100/70"
     >
       {value}
