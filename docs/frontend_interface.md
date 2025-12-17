@@ -40,4 +40,4 @@
 
 - **Caveats/plan quirks**
   - Data source is MongoDB via Prisma; external IDs (`steamAppId`, `rawgId`) are not primary keys.
-  - A “Supabase” mention in the plan’s DoD looks stale; treat Clerk + MongoDB as current.
+  - Treat Clerk + MongoDB as current.
