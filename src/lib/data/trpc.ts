@@ -60,9 +60,10 @@ export async function callTrpcProcedure<TInput, TResult>(
     method: "POST",
     headers: {
       "content-type": "application/json",
+      accept: "application/json",
       authorization: `Bearer ${options.token}`,
     },
-    body: JSON.stringify({ id: Date.now(), json: input }),
+    body: JSON.stringify({ json: input }),
     signal: options.signal,
     cache: "no-store",
   });

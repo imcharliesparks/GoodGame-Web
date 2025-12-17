@@ -1,11 +1,23 @@
 const ARGUS_URL_ENV = "ARGUS_URL";
 
 export function getArgusUrl() {
-  const url = process.env[ARGUS_URL_ENV];
+  const raw = process.env[ARGUS_URL_ENV];
 
-  if (!url) {
+  if (!raw) {
     throw new Error(`${ARGUS_URL_ENV} is not set; configure the backend URL in your environment.`);
   }
 
-  return url.replace(/\/$/, "");
+  const trimmed = raw.trim();
+  const candidate = /^https?:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`;
+
+  let parsed: URL;
+  try {
+    parsed = new URL(candidate);
+  } catch {
+    throw new Error(
+      `${ARGUS_URL_ENV} must be a valid absolute URL (include http:// or https://). Received: ${raw}`,
+    );
+  }
+
+  return parsed.toString().replace(/\/$/, "");
 }

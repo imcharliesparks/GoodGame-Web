@@ -116,6 +116,24 @@ function handleError(error: unknown) {
     );
   }
 
+  if (error instanceof Error && error.message.includes("ARGUS_URL")) {
+    return NextResponse.json<ApiResult<null>>(
+      { success: false, error: error.message },
+      { status: 500 },
+    );
+  }
+
+  if (error instanceof TypeError) {
+    return NextResponse.json<ApiResult<null>>(
+      {
+        success: false,
+        error:
+          "Failed to reach the tRPC backend. Check ARGUS_URL (must include http:// or https://) and ensure Argus is running.",
+      },
+      { status: 502 },
+    );
+  }
+
   return NextResponse.json<ApiResult<null>>(
     { success: false, error: "Unexpected server error." },
     { status: 500 },
