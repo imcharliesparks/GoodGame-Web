@@ -104,12 +104,35 @@ function renderMeta(values: string[] = [], keyPrefix: string) {
   ));
 }
 
-function formatDate(value: string | Date) {
-  const date = typeof value === "string" ? new Date(value) : value;
-  if (Number.isNaN(date.getTime())) return "Unknown";
+function formatDate(value: unknown) {
+  const date = coerceDate(value);
+  if (!date) return "Unknown";
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+}
+
+function coerceDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const nested = record.$date ?? record.date;
+    if (typeof nested === "string" || typeof nested === "number") {
+      const parsed = new Date(nested);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+
+  return null;
 }
