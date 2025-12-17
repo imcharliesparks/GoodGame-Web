@@ -19,9 +19,15 @@ export async function GET(request: Request) {
 
   try {
     const data = await searchCached(parsed);
+    const { nextCursor: rawNextCursor, ...rest } = data;
+    const nextCursor =
+      typeof rawNextCursor === "string" && rawNextCursor.length > 0
+        ? rawNextCursor
+        : undefined;
+
     return NextResponse.json<ApiResult<PaginatedResult<Game>>>({
       success: true,
-      data,
+      data: nextCursor ? { ...rest, nextCursor } : rest,
     });
   } catch (error) {
     return handleError(error);

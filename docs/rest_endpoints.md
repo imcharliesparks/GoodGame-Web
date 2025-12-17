@@ -36,9 +36,9 @@ List games from MongoDB with cursor pagination.
 - Query params:
   - `limit` (default `20`, max `50`)
   - `cursor` (optional ObjectId string)
-  - `source` (optional: `IGDB` or `RAWG`)
+  - `source` (optional: `STEAM` or `RAWG`)
 - Returns:
-  - `{ "items": Game[], "nextCursor": string | null }` (when no next cursor, `nextCursor` is omitted)
+  - `{ "items": Game[], "nextCursor"?: string }` (when no next page, `nextCursor` is omitted)
 
 ### `GET /api/games/search`
 
@@ -49,7 +49,7 @@ Search cached games in MongoDB by title substring.
   - `limit` (default `20`, max `50`)
   - `cursor` (optional ObjectId string)
 - Returns:
-  - `{ "items": Game[], "nextCursor": string | null }`
+  - `{ "items": Game[], "nextCursor"?: string }` (when no next page, `nextCursor` is omitted)
 
 ### `GET /api/games/:id`
 
@@ -180,4 +180,3 @@ Upserts/returns the user document for the authenticated Clerk user.
   - `{ "order": number }` (integer >= 0)
 - Returns:
   - `BoardGame`
-

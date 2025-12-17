@@ -33,7 +33,9 @@ export async function searchCached(
   input: GameSearchInput,
   options: ArgusCallOptions = {},
 ) {
-  return argusRequestJson<PaginatedResult<Game>>({
+  const data = await argusRequestJson<
+    PaginatedResult<Game> & { nextCursor?: string | null }
+  >({
     path: "/api/games/search",
     token: options.token,
     query: {
@@ -42,13 +44,23 @@ export async function searchCached(
       cursor: input.cursor,
     },
   });
+
+  const { nextCursor: rawNextCursor, ...rest } = data;
+  const nextCursor =
+    typeof rawNextCursor === "string" && rawNextCursor.length > 0
+      ? rawNextCursor
+      : undefined;
+
+  return nextCursor ? { ...rest, nextCursor } : rest;
 }
 
 export async function listGames(
   input: GameListInput,
   options: ArgusCallOptions = {},
 ) {
-  return argusRequestJson<PaginatedResult<Game>>({
+  const data = await argusRequestJson<
+    PaginatedResult<Game> & { nextCursor?: string | null }
+  >({
     path: "/api/games",
     token: options.token,
     query: {
@@ -56,6 +68,14 @@ export async function listGames(
       cursor: input.cursor,
     },
   });
+
+  const { nextCursor: rawNextCursor, ...rest } = data;
+  const nextCursor =
+    typeof rawNextCursor === "string" && rawNextCursor.length > 0
+      ? rawNextCursor
+      : undefined;
+
+  return nextCursor ? { ...rest, nextCursor } : rest;
 }
 
 export async function getGameById(
