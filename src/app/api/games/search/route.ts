@@ -12,7 +12,7 @@ const MAX_LIMIT = 50;
 type SearchMode = "cached" | "warm";
 
 export async function GET(request: Request) {
-  const { userId, getToken } = auth();
+  const { userId, getToken } = await auth();
 
   if (!userId) {
     return NextResponse.json<ApiResult<null>>(
