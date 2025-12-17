@@ -36,9 +36,9 @@ List games from MongoDB with cursor pagination.
 - Query params:
   - `limit` (default `20`, max `50`)
   - `cursor` (optional ObjectId string)
-  - `source` (optional: `STEAM` or `RAWG`)
+  - `source` (optional: `IGDB` or `RAWG`)
 - Returns:
-  - `{ "items": Game[], "nextCursor"?: string }` (when no next page, `nextCursor` is omitted)
+  - `{ "items": Game[], "nextCursor"?: string }` (when there is no next page, `nextCursor` is omitted)
 
 ### `GET /api/games/search`
 
@@ -47,9 +47,9 @@ Search cached games in MongoDB by title substring.
 - Query params:
   - `q` (required)
   - `limit` (default `20`, max `50`)
-  - `cursor` (optional ObjectId string)
+  - `cursor` (optional opaque string returned by the endpoint)
 - Returns:
-  - `{ "items": Game[], "nextCursor"?: string }` (when no next page, `nextCursor` is omitted)
+  - `{ "items": Game[], "nextCursor"?: string }` (when there is no next page, `nextCursor` is omitted)
 
 ### `GET /api/games/:id`
 
@@ -93,7 +93,7 @@ Upserts/returns the user document for the authenticated Clerk user.
   - `User`
 - Errors:
   - `401 { "error": "Unauthorized" }`
-  - `400 { "error": "Email missing from token" }`
+  - `400 { "error": "Email missing from token (ensure Clerk emits email via `{{user.primary_email_address}}`)" }`
 
 ---
 
@@ -180,3 +180,4 @@ Upserts/returns the user document for the authenticated Clerk user.
   - `{ "order": number }` (integer >= 0)
 - Returns:
   - `BoardGame`
+
