@@ -1,4 +1,4 @@
-import { createTrpcClient } from "@/lib/trpc/client";
+import { argusRequestJson } from "@/lib/argus/http";
 import type { PaginatedResult } from "@/lib/types/api";
 import type { Game } from "@/lib/types/game";
 
@@ -25,46 +25,65 @@ export type GetGameByRawgIdInput = {
   rawgId: number;
 };
 
-export type TrpcCallOptions = {
+export type ArgusCallOptions = {
   token?: string;
 };
 
 export async function searchCached(
   input: GameSearchInput,
-  options: TrpcCallOptions = {},
+  options: ArgusCallOptions = {},
 ) {
-  const trpc = createTrpcClient({ token: options.token });
-  return trpc.game.searchCached.query(input) as Promise<PaginatedResult<Game>>;
+  return argusRequestJson<PaginatedResult<Game>>({
+    path: "/api/games/search",
+    token: options.token,
+    query: {
+      q: input.query,
+      limit: input.limit,
+      cursor: input.cursor,
+    },
+  });
 }
 
 export async function listGames(
   input: GameListInput,
-  options: TrpcCallOptions = {},
+  options: ArgusCallOptions = {},
 ) {
-  const trpc = createTrpcClient({ token: options.token });
-  return trpc.game.list.query(input) as Promise<PaginatedResult<Game>>;
+  return argusRequestJson<PaginatedResult<Game>>({
+    path: "/api/games",
+    token: options.token,
+    query: {
+      limit: input.limit,
+      cursor: input.cursor,
+    },
+  });
 }
 
 export async function getGameById(
   input: GetGameByIdInput,
-  options: TrpcCallOptions = {},
+  options: ArgusCallOptions = {},
 ) {
-  const trpc = createTrpcClient({ token: options.token });
-  return trpc.game.getById.query(input) as Promise<Game>;
+  return argusRequestJson<Game>({
+    path: `/api/games/${encodeURIComponent(input.id)}`,
+    token: options.token,
+  });
 }
 
 export async function getGameByIgdbId(
   input: GetGameByIgdbIdInput,
-  options: TrpcCallOptions = {},
+  options: ArgusCallOptions = {},
 ) {
-  const trpc = createTrpcClient({ token: options.token });
-  return trpc.game.getByIgdbId.query(input) as Promise<Game>;
+  return argusRequestJson<Game>({
+    path: `/api/games/by-igdb/${encodeURIComponent(String(input.igdbId))}`,
+    token: options.token,
+  });
 }
 
 export async function getGameByRawgId(
   input: GetGameByRawgIdInput,
-  options: TrpcCallOptions = {},
+  options: ArgusCallOptions = {},
 ) {
-  const trpc = createTrpcClient({ token: options.token });
-  return trpc.game.getByRawgId.query(input) as Promise<Game>;
+  return argusRequestJson<Game>({
+    path: `/api/games/by-rawg/${encodeURIComponent(String(input.rawgId))}`,
+    token: options.token,
+  });
 }
