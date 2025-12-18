@@ -12,13 +12,12 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
 
 type RouteContext = {
-  params: {
-    id?: string;
-  };
+  params: { id?: string } | Promise<{ id?: string }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const boardId = context.params.id?.trim();
+  const params = await context.params;
+  const boardId = params.id?.trim();
   if (!boardId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },
@@ -48,7 +47,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const id = context.params.id?.trim();
+  const params = await context.params;
+  const id = params.id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },
@@ -84,7 +84,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 
-  const id = context.params.id?.trim();
+  const params = await context.params;
+  const id = params.id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },

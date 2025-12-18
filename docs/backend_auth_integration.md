@@ -24,7 +24,7 @@
   const { userId, getToken } = auth();                                                                               
   if (!userId) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
-  const token = await getToken({ template: 'argus-backend' }); // template with email claim                          
+  const token = await getToken({ template: 'argus' }); // template with email claim                          
   const res = await fetch(`${process.env.BACKEND_URL}/api/boards`, {                                                 
   headers: { Authorization: `Bearer ${token}` },                                                                   
   cache: 'no-store',                                                                                               
@@ -42,7 +42,7 @@
   const { userId, getToken } = getAuth(req);                                                                         
   if (!userId) return res.status(401).json({ error: 'Unauthorized' });
 
-  const token = await getToken({ template: 'argus-backend' });                                                       
+  const token = await getToken({ template: 'argus' });                                                       
   const upstream = await fetch(`${process.env.BACKEND_URL}/api/boards`, {                                            
   method: req.method,                                                                                              
   headers: {                                                                                                       
