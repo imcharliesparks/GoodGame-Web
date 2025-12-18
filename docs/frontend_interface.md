@@ -32,6 +32,8 @@
 
 - **Environment vars relevant to frontend**
   - Frontend needs Clerk publishable key; backend requires Clerk secret key and DB/API keys (backend-only).
+  - Clerk routes: `CLERK_SIGN_IN_URL=/sign-in`, `CLERK_SIGN_UP_URL=/sign-up`, `CLERK_AFTER_SIGN_IN_URL=/`, `CLERK_AFTER_SIGN_UP_URL=/`.
+  - Backend JWTs for Argus: set `CLERK_JWT_TEMPLATE_NAME` to the Clerk JWT template that Argus validates.
   - No image hosting keys are needed on the frontend; render URLs returned from `Game`.
 
 - **Operational expectations**

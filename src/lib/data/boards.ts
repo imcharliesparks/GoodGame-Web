@@ -64,6 +64,13 @@ export type ReorderBoardGameInput = {
   order: number;
 };
 
+export async function getBoard(id: string, options: ArgusCallOptions = {}) {
+  return argusRequestJson<Board>({
+    path: `/api/boards/${encodeURIComponent(id)}`,
+    token: options.token,
+  });
+}
+
 export async function listBoards(
   input: BoardListInput,
   options: ArgusCallOptions = {},

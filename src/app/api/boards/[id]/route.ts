@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthToken } from "../../_lib/auth";
+import { getOptionalAuthToken, requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
 import {
+  getBoard,
   deleteBoard,
   updateBoard,
   type UpdateBoardInput,
@@ -15,6 +16,28 @@ type RouteContext = {
     id?: string;
   };
 };
+
+export async function GET(_request: Request, context: RouteContext) {
+  const boardId = context.params.id?.trim();
+  if (!boardId) {
+    return NextResponse.json<ApiResult<null>>(
+      { success: false, error: "Board id is required." },
+      { status: 400 },
+    );
+  }
+
+  const authResult = await getOptionalAuthToken();
+
+  try {
+    const data = await getBoard(boardId, { token: authResult.token });
+    return NextResponse.json<ApiResult<Board>>({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    return respondWithError(error);
+  }
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   const authResult = await requireAuthToken();
