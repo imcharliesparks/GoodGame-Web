@@ -263,8 +263,11 @@ function BoardCard({
             className="border border-white/10 text-white"
             onClick={() => {
               const next = !draft.isPublic;
+              const originalValue = draft.isPublic;
               setDraft((prev) => ({ ...prev, isPublic: next }));
-              onUpdate(board.id, { isPublic: next });
+              onUpdate(board.id, { isPublic: next }).catch(() => {
+                setDraft((prev) => ({ ...prev, isPublic: originalValue }));
+              });
             }}
             disabled={isSaving}
           >
