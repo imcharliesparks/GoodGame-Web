@@ -228,7 +228,7 @@ function BoardCard({
   isSaving,
 }: {
   board: Board;
-  onUpdate: (id: string, updates: Partial<Board>) => void;
+  onUpdate: (id: string, updates: Partial<Board>) => Promise<void>;
   onDelete: (id: string) => void;
   isSaving: boolean;
 }) {

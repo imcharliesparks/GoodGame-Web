@@ -6,16 +6,17 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Game } from "@/lib/types/game";
 
 type RouteContext = {
-  params: {
-    igdbId?: string;
-  };
+  params: Promise<{
+    igdbId: string;
+  }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const igdbIdParam = context.params.igdbId;
-  const igdbId = Number(igdbIdParam);
+  const { igdbId } = await context.params;
+  const igdbIdParam = igdbId?.trim();
+  const igdbIdNumber = Number(igdbIdParam);
 
-  if (!igdbIdParam || !Number.isInteger(igdbId) || igdbId <= 0) {
+  if (!igdbIdParam || !Number.isInteger(igdbIdNumber) || igdbIdNumber <= 0) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Invalid igdbId" },
       { status: 400 },
@@ -23,7 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const data = await getGameByIgdbId({ igdbId });
+    const data = await getGameByIgdbId({ igdbId: igdbIdNumber });
     return NextResponse.json<ApiResult<Game>>({
       success: true,
       data,

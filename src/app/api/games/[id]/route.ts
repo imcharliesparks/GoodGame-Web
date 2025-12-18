@@ -6,13 +6,14 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Game } from "@/lib/types/game";
 
 type RouteContext = {
-  params: {
-    id?: string;
-  };
+  params: Promise<{
+    id: string;
+  }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const id = context.params.id?.trim();
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Game id is required." },
@@ -21,7 +22,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const data = await getGameById({ id });
+    const data = await getGameById({ id: trimmedId });
     return NextResponse.json<ApiResult<Game>>({
       success: true,
       data,

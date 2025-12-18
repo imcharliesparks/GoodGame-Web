@@ -6,16 +6,17 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Game } from "@/lib/types/game";
 
 type RouteContext = {
-  params: {
-    rawgId?: string;
-  };
+  params: Promise<{
+    rawgId: string;
+  }>;
 };
 
 export async function GET(_request: Request, context: RouteContext) {
-  const rawgIdParam = context.params.rawgId;
-  const rawgId = Number(rawgIdParam);
+  const { rawgId } = await context.params;
+  const rawgIdParam = rawgId?.trim();
+  const rawgIdNumber = Number(rawgIdParam);
 
-  if (!rawgIdParam || !Number.isInteger(rawgId) || rawgId <= 0) {
+  if (!rawgIdParam || !Number.isInteger(rawgIdNumber) || rawgIdNumber <= 0) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Invalid rawgId" },
       { status: 400 },
@@ -23,7 +24,7 @@ export async function GET(_request: Request, context: RouteContext) {
   }
 
   try {
-    const data = await getGameByRawgId({ rawgId });
+    const data = await getGameByRawgId({ rawgId: rawgIdNumber });
     return NextResponse.json<ApiResult<Game>>({
       success: true,
       data,

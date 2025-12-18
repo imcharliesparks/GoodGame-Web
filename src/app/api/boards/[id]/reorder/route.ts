@@ -7,9 +7,9 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
 
 type RouteContext = {
-  params: {
-    id?: string;
-  };
+  params: Promise<{
+    id: string;
+  }>;
 };
 
 export async function POST(request: Request, context: RouteContext) {
@@ -21,7 +21,8 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const id = context.params.id?.trim();
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },
@@ -39,7 +40,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   try {
     const data = await reorderBoard(
-      { id, order: parsedOrder.order },
+      { id: trimmedId, order: parsedOrder.order },
       { token: authResult.token },
     );
     return NextResponse.json<ApiResult<Board>>({

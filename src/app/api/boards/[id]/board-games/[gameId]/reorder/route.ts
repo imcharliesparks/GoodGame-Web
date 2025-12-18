@@ -7,10 +7,10 @@ import type { ApiResult } from "@/lib/types/api";
 import type { BoardGame } from "@/lib/types/board-game";
 
 type RouteContext = {
-  params: {
-    id?: string;
-    gameId?: string;
-  };
+  params: Promise<{
+    id: string;
+    gameId: string;
+  }>;
 };
 
 export async function POST(request: Request, context: RouteContext) {
@@ -22,8 +22,9 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const boardId = context.params.id?.trim();
-  const gameId = context.params.gameId?.trim();
+  const { id, gameId } = await context.params;
+  const boardId = id?.trim();
+  const trimmedGameId = gameId?.trim();
   if (!boardId || !gameId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "boardId and gameId are required." },
@@ -41,7 +42,7 @@ export async function POST(request: Request, context: RouteContext) {
 
   try {
     const data = await reorderBoardGame(
-      { boardId, gameId, order: parsedOrder.order },
+      { boardId, gameId: trimmedGameId, order: parsedOrder.order },
       { token: authResult.token },
     );
     return NextResponse.json<ApiResult<BoardGame>>({

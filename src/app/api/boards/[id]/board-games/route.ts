@@ -24,15 +24,16 @@ const VALID_STATUSES: GameStatus[] = [
 ];
 
 type RouteContext = {
-  params: {
-    id?: string;
-  };
+  params: Promise<{
+    id: string;
+  }>;
 };
 
 export async function GET(request: Request, context: RouteContext) {
   const authResult = await getOptionalAuthToken();
 
-  const boardId = context.params.id?.trim();
+  const { id } = await context.params;
+  const boardId = id?.trim();
   if (!boardId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "boardId is required." },
@@ -71,7 +72,8 @@ export async function POST(request: Request, context: RouteContext) {
     );
   }
 
-  const boardId = context.params.id?.trim();
+  const { id } = await context.params;
+  const boardId = id?.trim();
   if (!boardId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "boardId is required." },

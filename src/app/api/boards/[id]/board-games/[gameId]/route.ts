@@ -18,10 +18,10 @@ const VALID_STATUSES: GameStatus[] = [
 ];
 
 type RouteContext = {
-  params: {
-    id?: string;
-    gameId?: string;
-  };
+  params: Promise<{
+    id: string;
+    gameId: string;
+  }>;
 };
 
 export async function PATCH(request: Request, context: RouteContext) {
@@ -33,8 +33,9 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const boardId = context.params.id?.trim();
-  const gameId = context.params.gameId?.trim();
+  const { id, gameId } = await context.params;
+  const boardId = id?.trim();
+  const trimmedGameId = gameId?.trim();
   if (!boardId || !gameId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "boardId and gameId are required." },
@@ -42,7 +43,7 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const parsed = await parseBody(request, boardId, gameId);
+  const parsed = await parseBody(request, boardId, trimmedGameId);
   if ("error" in parsed) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: parsed.error },
@@ -70,8 +71,9 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 
-  const boardId = context.params.id?.trim();
-  const gameId = context.params.gameId?.trim();
+  const { id, gameId } = await context.params;
+  const boardId = id?.trim();
+  const trimmedGameId = gameId?.trim();
   if (!boardId || !gameId) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "boardId and gameId are required." },
@@ -80,7 +82,7 @@ export async function DELETE(_request: Request, context: RouteContext) {
   }
 
   try {
-    const data = await deleteBoardGame(boardId, gameId, {
+    const data = await deleteBoardGame(boardId, trimmedGameId, {
       token: authResult.token,
     });
     return NextResponse.json<ApiResult<{ success: boolean }>>({
