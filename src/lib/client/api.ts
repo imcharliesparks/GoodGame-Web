@@ -24,7 +24,7 @@ export async function apiFetch<T>(
 ): Promise<T | undefined>;
 export async function apiFetch<T>(
   input: string,
-  { expectData = true, ...init }: RequestOptions = {},
+  options?: RequestOptions,
 ): Promise<T>;
 export async function apiFetch<T>(
   input: string,
