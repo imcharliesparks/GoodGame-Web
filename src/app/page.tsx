@@ -1,65 +1,77 @@
-import Image from "next/image";
+import Link from "next/link";
+import { ArrowRight, Gamepad2, HeartPulse, ListChecks, Search, User } from "lucide-react";
+
+import { AppShell } from "@/components/layout/AppShell";
+import { Button } from "@/components/ui/button";
+
+const cards = [
+  {
+    title: "Health",
+    href: "/health",
+    description: "Check the Argus backend heartbeat via /api/health.",
+    icon: HeartPulse,
+  },
+  {
+    title: "Games",
+    href: "/games",
+    description: "Browse cached games with cursor pagination.",
+    icon: Gamepad2,
+  },
+  {
+    title: "Search",
+    href: "/games/search",
+    description: "Debounced search over cached games through the proxy route.",
+    icon: Search,
+  },
+  {
+    title: "Boards",
+    href: "/boards",
+    description: "Manage boards and board games (requires Clerk auth).",
+    icon: ListChecks,
+  },
+  {
+    title: "Profile",
+    href: "/profile",
+    description: "View your Clerk-linked Argus user record.",
+    icon: User,
+  },
+];
 
 export default function Home() {
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
+    <AppShell
+      title="GoodGame control panel"
+      description="Navigate the Argus-backed endpoints through focused UI pages. Everything here is wired to the REST routes defined in docs/rest_endpoints.md."
+      actions={
+        <Button asChild variant="outline" className="border-white/30 text-white hover:border-white hover:bg-white/10">
+          <Link href="/games/search">
+            Open search <ArrowRight className="ml-2 size-4" />
+          </Link>
+        </Button>
+      }
+    >
+      <section className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {cards.map((card) => (
+          <Link
+            key={card.href}
+            href={card.href}
+            className="group relative overflow-hidden rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30 transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-indigo-900/40"
           >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
-    </div>
+            <div className="absolute inset-0 bg-gradient-to-br from-white/5 via-transparent to-indigo-900/20 opacity-0 transition group-hover:opacity-100" />
+            <div className="relative flex items-center gap-3">
+              <div className="flex size-10 items-center justify-center rounded-xl bg-indigo-600/80 text-white shadow-lg shadow-indigo-900/40">
+                <card.icon className="size-5" />
+              </div>
+              <h2 className="text-lg font-semibold">{card.title}</h2>
+            </div>
+            <p className="relative mt-3 text-sm text-indigo-100/80">{card.description}</p>
+            <div className="relative mt-4 flex items-center gap-2 text-sm font-medium text-indigo-100 transition group-hover:text-white">
+              <span>Open</span>
+              <ArrowRight className="size-4" />
+            </div>
+          </Link>
+        ))}
+      </section>
+    </AppShell>
   );
 }
