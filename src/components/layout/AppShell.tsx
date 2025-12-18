@@ -26,6 +26,15 @@ type AppShellProps = {
 
 export function AppShell({ title, description, actions, children }: AppShellProps) {
   const pathname = usePathname();
+  const activeHref = links.reduce<string | null>((acc, link) => {
+    const matches =
+      link.href === "/"
+        ? pathname === "/"
+        : pathname === link.href || pathname.startsWith(`${link.href}/`);
+    if (!matches) return acc;
+    if (!acc) return link.href;
+    return link.href.length > acc.length ? link.href : acc;
+  }, null);
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-white">
@@ -44,7 +53,7 @@ export function AppShell({ title, description, actions, children }: AppShellProp
                 href={link.href}
                 className={cn(
                   "flex items-center gap-2 rounded-full px-3 py-2 text-indigo-100 transition",
-                  pathname === link.href || pathname.startsWith(`${link.href}/`)
+                  link.href === activeHref
                     ? "bg-indigo-500/20 text-white shadow-sm shadow-indigo-800/50"
                     : "hover:bg-white/10 hover:text-white",
                 )}
