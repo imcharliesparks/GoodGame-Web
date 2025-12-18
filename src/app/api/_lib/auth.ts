@@ -9,26 +9,54 @@ export type AuthTokenResult =
 export type OptionalAuthTokenResult = { token?: string };
 
 export async function requireAuthToken(): Promise<AuthTokenResult> {
-  const { userId, getToken } = auth();
-  if (!userId) {
-    return { error: "Unauthorized", status: 401 };
-  }
+  try {
+    const { userId, getToken } = await auth();
+    if (!userId) {
+      return { error: "Unauthorized", status: 401 };
+    }
 
-  const template = getClerkJwtTemplate();
-  const token = await getToken(template ? { template } : undefined);
-  if (!token) {
-    return { error: "Unauthorized", status: 401 };
-  }
+    const template = getClerkJwtTemplate();
+    const token = await getToken(template ? { template } : undefined);
+    if (!token) {
+      // Missing JWT usually means the template is misconfigured or not issued for this session.
+      const hint = template
+        ? `Configure Clerk JWT template "${template}" and ensure it issues tokens server-side.`
+        : "Clerk could not issue a JWT for this session.";
+      return { error: hint, status: 401 };
+    }
 
-  return { token };
+    return { token };
+  } catch (error) {
+    if (isClerkApiError(error)) {
+      // Clerk failed to resolve the session; normalize to unauthorized.
+      return { error: "Unauthorized", status: 401 };
+    }
+    return { error: "Authentication failed", status: 500 };
+  }
 }
 
 export async function getOptionalAuthToken(): Promise<OptionalAuthTokenResult> {
-  const { userId, getToken } = auth();
-  if (!userId) return {};
+  try {
+    const { userId, getToken } = await auth();
+    if (!userId) return {};
 
-  const template = getClerkJwtTemplate();
-  const token = await getToken(template ? { template } : undefined);
+    const template = getClerkJwtTemplate();
+    const token = await getToken(template ? { template } : undefined);
 
-  return token ? { token } : {};
+    return token ? { token } : {};
+  } catch (error) {
+    if (isClerkApiError(error)) return {};
+    return {};
+  }
+}
+
+function isClerkApiError(
+  error: unknown,
+): error is { status?: number; clerkError?: boolean } {
+  return (
+    typeof error === "object" &&
+    error !== null &&
+    "clerkError" in error &&
+    (error as { clerkError: unknown }).clerkError === true
+  );
 }

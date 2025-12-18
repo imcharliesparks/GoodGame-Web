@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-
 import { requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
 import { getCurrentUser } from "@/lib/data/user";
