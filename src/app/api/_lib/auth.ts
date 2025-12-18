@@ -1,3 +1,4 @@
+import { isClerkAPIResponseError } from "@clerk/nextjs/errors";
 import { auth } from "@clerk/nextjs/server";
 
 import { getClerkJwtTemplate } from "@/lib/env";
@@ -27,7 +28,7 @@ export async function requireAuthToken(): Promise<AuthTokenResult> {
 
     return { token };
   } catch (error) {
-    if (isClerkApiError(error)) {
+    if (isClerkAPIResponseError(error)) {
       // Clerk failed to resolve the session; normalize to unauthorized.
       return { error: "Unauthorized", status: 401 };
     }
@@ -45,18 +46,7 @@ export async function getOptionalAuthToken(): Promise<OptionalAuthTokenResult> {
 
     return token ? { token } : {};
   } catch (error) {
-    if (isClerkApiError(error)) return {};
+    if (isClerkAPIResponseError(error)) return {};
     return {};
   }
-}
-
-function isClerkApiError(
-  error: unknown,
-): error is { status?: number; clerkError?: boolean } {
-  return (
-    typeof error === "object" &&
-    error !== null &&
-    "clerkError" in error &&
-    (error as { clerkError: unknown }).clerkError === true
-  );
 }

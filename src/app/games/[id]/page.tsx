@@ -18,8 +18,13 @@ async function loadGame(id: string): Promise<{ game?: Game; error?: string }> {
   let payload: ApiResult<Game> | null = null;
   try {
     payload = (await response.json()) as ApiResult<Game>;
-  } catch {
-    // ignore parse errors
+  } catch (error) {
+    const message = error instanceof Error ? error.message : String(error);
+    return { error: `Invalid JSON response: ${message}` };
+  }
+
+  if (!response.ok) {
+    return { error: payload?.error ?? `Request failed (${response.status})` };
   }
 
   if (!payload?.success) {

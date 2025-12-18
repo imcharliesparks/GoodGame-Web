@@ -20,8 +20,16 @@ function buildErrorMessage(
  */
 export async function apiFetch<T>(
   input: string,
+  options: RequestOptions & { expectData: false },
+): Promise<T | undefined>;
+export async function apiFetch<T>(
+  input: string,
   { expectData = true, ...init }: RequestOptions = {},
-): Promise<T> {
+): Promise<T>;
+export async function apiFetch<T>(
+  input: string,
+  { expectData = true, ...init }: RequestOptions = {},
+): Promise<T | undefined> {
   const response = await fetch(input, {
     cache: "no-store",
     ...init,
@@ -43,8 +51,12 @@ export async function apiFetch<T>(
   }
 
   if (!expectData) {
-    return undefined as T;
+    return undefined;
   }
 
-  return payload.data as T;
+  if (payload.data === undefined) {
+    throw new Error(buildErrorMessage(null, response));
+  }
+
+  return payload.data;
 }

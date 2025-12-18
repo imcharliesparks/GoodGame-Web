@@ -1,6 +1,4 @@
-import { clerkMiddleware, createRouteMatcher } from "@clerk/nextjs/server";
-
-const isProtectedRoute = createRouteMatcher(["/api/user(.*)"]);
+import { clerkMiddleware } from "@clerk/nextjs/server";
 
 // Use default Clerk middleware to hydrate auth() for route handlers.
 export default clerkMiddleware();
