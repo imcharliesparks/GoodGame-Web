@@ -1,4 +1,5 @@
 const ARGUS_URL_ENV = "ARGUS_URL";
+const CLERK_JWT_TEMPLATE_ENV = "CLERK_JWT_TEMPLATE_NAME";
 
 export function getArgusUrl() {
   const raw = process.env[ARGUS_URL_ENV];
@@ -20,4 +21,11 @@ export function getArgusUrl() {
   }
 
   return parsed.toString().replace(/\/$/, "");
+}
+
+export function getClerkJwtTemplate() {
+  const raw = process.env[CLERK_JWT_TEMPLATE_ENV];
+  const value = raw?.trim();
+
+  return value && value.length > 0 ? value : undefined;
 }

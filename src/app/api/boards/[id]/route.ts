@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthToken } from "../../_lib/auth";
+import { getOptionalAuthToken, requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
 import {
+  getBoard,
   deleteBoard,
   updateBoard,
   type UpdateBoardInput,
@@ -11,10 +12,31 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
 
 type RouteContext = {
-  params: {
-    id?: string;
-  };
+  params: { id?: string } | Promise<{ id?: string }>;
 };
+
+export async function GET(_request: Request, context: RouteContext) {
+  const params = await context.params;
+  const boardId = params.id?.trim();
+  if (!boardId) {
+    return NextResponse.json<ApiResult<null>>(
+      { success: false, error: "Board id is required." },
+      { status: 400 },
+    );
+  }
+
+  const authResult = await getOptionalAuthToken();
+
+  try {
+    const data = await getBoard(boardId, { token: authResult.token });
+    return NextResponse.json<ApiResult<Board>>({
+      success: true,
+      data,
+    });
+  } catch (error) {
+    return respondWithError(error);
+  }
+}
 
 export async function PATCH(request: Request, context: RouteContext) {
   const authResult = await requireAuthToken();
@@ -25,7 +47,8 @@ export async function PATCH(request: Request, context: RouteContext) {
     );
   }
 
-  const id = context.params.id?.trim();
+  const params = await context.params;
+  const id = params.id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },
@@ -61,7 +84,8 @@ export async function DELETE(_request: Request, context: RouteContext) {
     );
   }
 
-  const id = context.params.id?.trim();
+  const params = await context.params;
+  const id = params.id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "Board id is required." },

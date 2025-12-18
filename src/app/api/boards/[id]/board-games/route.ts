@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthToken } from "../../../_lib/auth";
+import { getOptionalAuthToken, requireAuthToken } from "../../../_lib/auth";
 import { respondWithError } from "../../../_lib/errors";
 import {
   addBoardGame,
@@ -30,13 +30,7 @@ type RouteContext = {
 };
 
 export async function GET(request: Request, context: RouteContext) {
-  const authResult = await requireAuthToken();
-  if ("error" in authResult) {
-    return NextResponse.json<ApiResult<null>>(
-      { success: false, error: authResult.error },
-      { status: authResult.status },
-    );
-  }
+  const authResult = await getOptionalAuthToken();
 
   const boardId = context.params.id?.trim();
   if (!boardId) {
