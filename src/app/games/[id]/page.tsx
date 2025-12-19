@@ -215,7 +215,7 @@ function MetaList({
 }: {
   label: string;
   values?: string[];
-  icon?: JSX.Element;
+  icon?: ReactNode;
 }) {
   if (!values || values.length === 0) return null;
   return (
