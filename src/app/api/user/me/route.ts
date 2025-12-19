@@ -34,13 +34,20 @@ export async function GET() {
 }
 
 async function ensureDefaultBoards(token: string) {
-  const boards = await listBoards({ limit: 50 }, { token });
-  const existingNames = new Set(
-    boards.items.map((board) => board.name.toLowerCase()),
-  );
+  const existingNames = new Set<string>();
+  let cursor: string | undefined;
+
+  do {
+    const boards = await listBoards({ limit: 50, cursor }, { token });
+    for (const board of boards.items) {
+      existingNames.add(board.name.toLowerCase());
+    }
+    cursor = boards.nextCursor;
+  } while (cursor);
 
   for (const config of REQUIRED_BOARDS) {
     if (existingNames.has(config.name.toLowerCase())) continue;
     await createBoard(config, { token });
   }
+}
 }
