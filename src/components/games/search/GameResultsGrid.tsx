@@ -43,6 +43,13 @@ const BOARD_CONFIG: Record<
   },
 };
 
+const ICON_BUTTON_CLASSES =
+  "h-9 w-9 rounded-full bg-white/5 backdrop-blur border border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white active:translate-y-[1px] active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:opacity-40 disabled:pointer-events-none transition";
+const PRIMARY_BUTTON_CLASSES =
+  "h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium shadow-lg shadow-indigo-900/30 hover:brightness-105 active:brightness-95 active:translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:opacity-60 disabled:shadow-none disabled:pointer-events-none transition";
+const SECONDARY_BUTTON_CLASSES =
+  "h-10 rounded-full border border-white/30 text-white/90 bg-white/5 hover:bg-white/10 hover:border-white/50 active:bg-white/15 active:translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:opacity-60 disabled:pointer-events-none transition";
+
 export function GameResultsGrid({ games }: { games: Game[] }) {
   const [boardIds, setBoardIds] = useState<Partial<Record<BoardKey, string>>>({});
   const [quickAdd, setQuickAdd] = useState<QuickAddMap>({});
@@ -164,8 +171,8 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className={`h-9 w-9 rounded-full border border-white/15 bg-white/5 text-slate-900 hover:bg-white/10 dark:text-white ${
-                    likedState.status === "added" ? "text-rose-300" : ""
+                  className={`${ICON_BUTTON_CLASSES} ${
+                    likedState.status === "added" ? "text-rose-300 hover:text-rose-200" : ""
                   }`}
                   onClick={() => handleQuickAdd(game, "liked")}
                   disabled={likedState.status === "loading" || likedState.status === "added"}
@@ -188,7 +195,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-white/15 bg-white/5 text-slate-900 hover:bg-white/10 dark:text-white"
+                      className={ICON_BUTTON_CLASSES}
                       aria-label="Add to another board"
                     >
                       <Ellipsis className="size-4" />
@@ -237,7 +244,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                     type="button"
                     size="sm"
                     variant="secondary"
-                    className="border border-white/15 bg-white/10 text-slate-900 hover:bg-white/20 dark:text-white"
+                    className={`${PRIMARY_BUTTON_CLASSES} px-4`}
                     onClick={() => handleQuickAdd(game, "library")}
                     disabled={libraryState.status === "loading" || libraryState.status === "added"}
                   >
@@ -250,7 +257,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                     type="button"
                     size="sm"
                     variant="outline"
-                    className="border-white/25 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+                    className={`${SECONDARY_BUTTON_CLASSES} px-4`}
                     onClick={() => handleQuickAdd(game, "wishlist")}
                     disabled={
                       wishlistState.status === "loading" || wishlistState.status === "added"
