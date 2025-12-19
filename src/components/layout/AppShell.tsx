@@ -69,7 +69,10 @@ export function AppShell({ title, description, actions, children }: AppShellProp
             </SignedIn>
             <SignedOut>
               <SignInButton mode="modal">
-                <Button variant="outline" className="border-white/30 text-white hover:border-white hover:bg-white/10">
+                <Button
+                  variant="outline"
+                  className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+                >
                   Sign in
                 </Button>
               </SignInButton>

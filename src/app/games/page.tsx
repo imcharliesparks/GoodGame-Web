@@ -69,7 +69,7 @@ export default function GamesPage() {
         <Button
           type="button"
           variant="outline"
-          className="border-white/30 text-white hover:border-white hover:bg-white/10"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
           onClick={() => loadPage()}
           disabled={isLoading}
         >

@@ -43,7 +43,11 @@ export default function Home() {
       title="GoodGame control panel"
       description="Navigate the Argus-backed endpoints through focused UI pages. Everything here is wired to the REST routes defined in docs/rest_endpoints.md."
       actions={
-        <Button asChild variant="outline" className="border-white/30 text-white hover:border-white hover:bg-white/10">
+        <Button
+          asChild
+          variant="outline"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+        >
           <Link href="/games/search">
             Open search <ArrowRight className="ml-2 size-4" />
           </Link>
