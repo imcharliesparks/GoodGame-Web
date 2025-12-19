@@ -147,7 +147,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className={`h-9 w-9 rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10 ${
+                  className={`h-9 w-9 rounded-full border border-white/15 bg-white/5 text-slate-900 hover:bg-white/10 dark:text-white ${
                     likedState.status === "added" ? "text-rose-300" : ""
                   }`}
                   onClick={() => handleQuickAdd(game, "liked")}
@@ -171,7 +171,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       type="button"
                       size="icon"
                       variant="ghost"
-                      className="h-9 w-9 rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                      className="h-9 w-9 rounded-full border border-white/15 bg-white/5 text-slate-900 hover:bg-white/10 dark:text-white"
                       aria-label="Add to another board"
                     >
                       <Ellipsis className="size-4" />
@@ -187,12 +187,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
             <div className="flex gap-3">
               <CoverImage url={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl} title={game.title} />
               <div className="flex flex-1 flex-col gap-2">
-                <div className="flex items-start justify-between gap-2">
-                  <h3 className="text-lg font-semibold leading-tight text-white">{game.title}</h3>
-                  <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100/80">
-                    {game.source}
-                  </span>
-                </div>
+                <h3 className="text-lg font-semibold leading-tight text-white">{game.title}</h3>
                 <p className="line-clamp-2 text-sm text-indigo-100/80">
                   {game.description || "No description available."}
                 </p>
@@ -214,7 +209,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       type="button"
                       size="sm"
                       variant="secondary"
-                      className="border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                      className="border border-white/15 bg-white/10 text-slate-900 hover:bg-white/20 dark:text-white"
                       onClick={() => handleQuickAdd(game, "library")}
                       disabled={libraryState.status === "loading"}
                     >
@@ -227,7 +222,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       type="button"
                       size="sm"
                       variant="outline"
-                      className="border-white/25 text-white hover:border-white hover:bg-white/10"
+                      className="border-white/25 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
                       onClick={() => handleQuickAdd(game, "wishlist")}
                       disabled={wishlistState.status === "loading"}
                     >
@@ -243,7 +238,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                         type="button"
                         variant="outline"
                         size="sm"
-                        className="border-white/30 text-white hover:border-white hover:bg-white/10"
+                        className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
                       >
                         Sign in to save
                       </Button>

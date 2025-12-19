@@ -99,7 +99,7 @@ export default function BoardsPage() {
         <Button
           type="button"
           variant="outline"
-          className="border-white/30 text-white hover:border-white hover:bg-white/10"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
           onClick={() => loadBoards()}
           disabled={isLoading}
         >
@@ -202,7 +202,7 @@ export default function BoardsPage() {
           <div className="mt-4">
             <Button
               variant="outline"
-              className="border-white/30 text-white hover:border-white hover:bg-white/10"
+              className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
               onClick={() => loadBoards(nextCursor)}
               disabled={isLoading}
             >
@@ -260,7 +260,7 @@ function BoardCard({
           <Button
             variant="secondary"
             size="sm"
-            className="border border-white/10 text-white"
+            className="border border-white/10 text-slate-900 dark:text-white"
             onClick={() => {
               const next = !draft.isPublic;
               const originalValue = draft.isPublic;
@@ -321,7 +321,7 @@ function BoardCard({
       <div className="mt-4 flex flex-wrap gap-2">
         <Button
           variant="outline"
-          className="border-white/30 text-white hover:border-white hover:bg-white/10"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
           onClick={() =>
             onUpdate(board.id, {
               name: draft.name.trim(),

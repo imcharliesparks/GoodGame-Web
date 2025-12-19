@@ -151,7 +151,7 @@ export function AddToBoardSheet({ game, onAdded, trigger }: Props) {
             type="button"
             variant="outline"
             size="sm"
-            className="border-white/25 text-white hover:border-white hover:bg-white/10"
+            className="border-white/25 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
           >
             <Plus className="mr-2 size-4" />
             Add to

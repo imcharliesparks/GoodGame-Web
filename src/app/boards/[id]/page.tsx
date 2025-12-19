@@ -319,7 +319,7 @@ export default function BoardDetailsPage({ params }: { params: { id: string } })
       {nextCursor ? (
         <Button
           variant="outline"
-          className="border-white/30 text-white hover:border-white hover:bg-white/10"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
           onClick={() => loadBoardGames(nextCursor)}
           disabled={isLoadingGames}
         >
@@ -384,7 +384,7 @@ function BoardGameCard({
             <Button
               variant="outline"
               size="sm"
-              className="border-white/30 text-white hover:border-white hover:bg-white/10"
+              className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
               onClick={() =>
                 onUpdate(boardGame.gameId, {
                   status: draft.status,
@@ -450,7 +450,7 @@ function BoardGameCard({
             <Button
               variant="outline"
               size="sm"
-              className="mt-2 border-white/30 text-white hover:border-white hover:bg-white/10"
+              className="mt-2 border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
               onClick={() => onReorder(boardGame.gameId, Number(draft.order) || 0)}
               disabled={isSaving}
             >

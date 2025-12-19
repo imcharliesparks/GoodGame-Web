@@ -129,7 +129,7 @@ export default function GameSearchPage() {
         <Button
           asChild
           variant="outline"
-          className="border-white/30 text-white hover:border-white hover:bg-white/10"
+          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
         >
           <Link href="/games">Open catalog</Link>
         </Button>
@@ -148,7 +148,7 @@ export default function GameSearchPage() {
             <Button
               type="button"
               variant="outline"
-              className="border-white/15 bg-white/10 text-white hover:bg-white/15 hover:text-white"
+              className="border-white/15 bg-white/10 text-slate-900 hover:bg-white/15 hover:text-slate-900 dark:text-white dark:hover:text-white"
               disabled={isLoading || !query.trim()}
               onClick={() => {
                 const term = query.trim();
