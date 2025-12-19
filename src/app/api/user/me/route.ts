@@ -42,7 +42,7 @@ async function ensureDefaultBoards(token: string) {
     for (const board of boards.items) {
       existingNames.add(board.name.toLowerCase());
     }
-    cursor = boards.nextCursor;
+    cursor = "nextCursor" in boards ? boards.nextCursor : undefined;
   } while (cursor);
 
   for (const config of REQUIRED_BOARDS) {
