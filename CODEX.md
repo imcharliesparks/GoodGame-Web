@@ -1,4 +1,4 @@
-﻿
+
 # CODEX.md
 
 ## Project Overview

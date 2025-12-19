@@ -2,7 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { Check, Ellipsis, Heart, Loader2 } from "lucide-react";
+import { AlertCircle, Check, Ellipsis, Heart, Loader2 } from "lucide-react";
 
 import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
 import { Button } from "@/components/ui/button";
@@ -95,7 +95,17 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
     }));
   };
 
+  const resolveBoardKeyFromName = (boardName: string): BoardKey | null => {
+    const normalized = boardName.trim().toLowerCase();
+    return (Object.keys(BOARD_CONFIG) as BoardKey[]).find(
+      (key) => BOARD_CONFIG[key].name.toLowerCase() === normalized,
+    ) ?? null;
+  };
+
   const handleQuickAdd = async (game: Game, boardKey: BoardKey) => {
+    const currentState = quickAdd[game.id]?.[boardKey];
+    if (currentState?.status === "added") return;
+
     setQuickState(game.id, boardKey, { status: "loading" });
     try {
       const board = await ensureBoard(boardKey);
@@ -130,6 +140,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
         const errored = states.find((s) => s.status === "error") as
           | Extract<QuickAddState, { status: "error" }>
           | undefined;
+        const actionIsError = Boolean(errored);
         const actionMessage = added
           ? `Added to ${added.boardName}`
           : errored
@@ -151,7 +162,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                     likedState.status === "added" ? "text-rose-300" : ""
                   }`}
                   onClick={() => handleQuickAdd(game, "liked")}
-                  disabled={likedState.status === "loading"}
+                  disabled={likedState.status === "loading" || likedState.status === "added"}
                   aria-label="Quick like"
                 >
                   {likedState.status === "loading" ? (
@@ -172,17 +183,20 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       size="icon"
                       variant="ghost"
                       className="h-9 w-9 rounded-full border border-white/15 bg-white/5 text-slate-900 hover:bg-white/10 dark:text-white"
-                      aria-label="Add to another board"
-                    >
-                      <Ellipsis className="size-4" />
-                    </Button>
-                  }
-                  onAdded={({ boardName }) =>
-                    setQuickState(game.id, "liked", { status: "added", boardName })
-                  }
-                />
-              </div>
-            </SignedIn>
+                  aria-label="Add to another board"
+                >
+                  <Ellipsis className="size-4" />
+                </Button>
+              }
+              onAdded={({ boardName }) => {
+                const boardKey = resolveBoardKeyFromName(boardName);
+                if (boardKey) {
+                  setQuickState(game.id, boardKey, { status: "added", boardName });
+                }
+              }}
+            />
+          </div>
+        </SignedIn>
 
             <div className="flex gap-3">
               <CoverImage url={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl} title={game.title} />
@@ -211,7 +225,9 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       variant="secondary"
                       className="border border-white/15 bg-white/10 text-slate-900 hover:bg-white/20 dark:text-white"
                       onClick={() => handleQuickAdd(game, "library")}
-                      disabled={libraryState.status === "loading"}
+                      disabled={
+                        libraryState.status === "loading" || libraryState.status === "added"
+                      }
                     >
                       {libraryState.status === "loading" ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -224,7 +240,9 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                       variant="outline"
                       className="border-white/25 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
                       onClick={() => handleQuickAdd(game, "wishlist")}
-                      disabled={wishlistState.status === "loading"}
+                      disabled={
+                        wishlistState.status === "loading" || wishlistState.status === "added"
+                      }
                     >
                       {wishlistState.status === "loading" ? (
                         <Loader2 className="mr-2 size-4 animate-spin" />
@@ -247,8 +265,20 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
 
                   <div className="min-w-[140px] text-xs text-indigo-100/80">
                     {actionMessage ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-100">
-                        <Check className="size-3.5" />
+                      <span
+                        className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
+                          actionIsError
+                            ? "bg-rose-500/15 text-rose-100"
+                            : "bg-emerald-500/15 text-emerald-100"
+                        }`}
+                        role={actionIsError ? "alert" : "status"}
+                        aria-live={actionIsError ? "assertive" : "polite"}
+                      >
+                        {actionIsError ? (
+                          <AlertCircle className="size-3.5" />
+                        ) : (
+                          <Check className="size-3.5" />
+                        )}
                         {actionMessage}
                       </span>
                     ) : null}
