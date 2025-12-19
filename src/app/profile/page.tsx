@@ -1,50 +1,47 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { useState } from "react";
+import { SignedIn, SignedOut, SignInButton, useUser } from "@clerk/nextjs";
 import { Loader2, RefreshCcw } from "lucide-react";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
-import { fetchCurrentUser } from "@/lib/client/user";
-import type { User } from "@/lib/types/user";
 
 export default function ProfilePage() {
-  const [user, setUser] = useState<User | null>(null);
+  const { isLoaded, user } = useUser();
   const [error, setError] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
 
-  const load = async () => {
-    setIsLoading(true);
+  const handleRefresh = async () => {
+    if (!user) return;
     setError(null);
+    setIsRefreshing(true);
     try {
-      const data = await fetchCurrentUser();
-      setUser(data);
+      await user.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to load user.");
-      setUser(null);
+      setError(err instanceof Error ? err.message : "Failed to refresh user.");
     } finally {
-      setIsLoading(false);
+      setIsRefreshing(false);
     }
   };
 
-  useEffect(() => {
-    load();
-  }, []);
+  const email = user?.primaryEmailAddress?.emailAddress ?? "-";
+  const name = user?.fullName ?? user?.username ?? "-";
+  const created = user?.createdAt ? new Date(user.createdAt).toLocaleString() : "-";
 
   return (
     <AppShell
       title="Profile"
-      description="Fetches /api/user/me to show the Argus user linked to your Clerk account."
+      description="Shows your Clerk user directly via useUser(); no backend call required."
       actions={
         <Button
           type="button"
           variant="outline"
           className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
-          onClick={load}
-          disabled={isLoading}
+          onClick={handleRefresh}
+          disabled={!user || isRefreshing}
         >
-          <RefreshCcw className="mr-2 size-4" />
+          {isRefreshing ? <Loader2 className="mr-2 size-4 animate-spin" /> : <RefreshCcw className="mr-2 size-4" />}
           Refresh
         </Button>
       }
@@ -68,30 +65,27 @@ export default function ProfilePage() {
             </div>
           ) : null}
 
-          {isLoading && !user ? (
+          {!isLoaded ? (
             <div className="flex items-center gap-2 text-sm text-indigo-100/80">
               <Loader2 className="size-4 animate-spin" />
               Loading user...
             </div>
           ) : null}
 
-          {user ? (
+          {isLoaded && user ? (
             <div className="space-y-3">
               <p className="text-xs uppercase tracking-wide text-indigo-200">Clerk user</p>
               <div className="grid gap-3 sm:grid-cols-2">
                 <ProfileField label="ID" value={user.id} />
-                <ProfileField label="Email" value={user.email} />
-                <ProfileField label="Name" value={user.name ?? "—"} />
-                <ProfileField
-                  label="Created"
-                  value={new Date(user.createdAt).toLocaleString()}
-                />
+                <ProfileField label="Email" value={email} />
+                <ProfileField label="Name" value={name} />
+                <ProfileField label="Created" value={created} />
               </div>
-              {user.avatarUrl ? (
+              {user.imageUrl ? (
                 <div className="flex items-center gap-3">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
-                    src={user.avatarUrl}
+                    src={user.imageUrl}
                     alt="Avatar"
                     className="size-12 rounded-full border border-white/10"
                     referrerPolicy="no-referrer"

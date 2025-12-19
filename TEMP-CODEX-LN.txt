@@ -1,0 +1,94 @@
+1: # CODEX.md
+2: 
+3: ## Project Overview
+2: 
+5: This repository contains a **modern full-stack web application** built with:
+2: 
+7: - **Next.js (App Router)**
+8: - **React**
+9: - **TypeScript**
+10: - **Clerk Authentication**
+11: - **Tailwind CSS**
+12: - **ShadCN UI**
+13: - **Bun** (package manager & local runtime)
+2: 
+15: The project is being developed in **clear, incremental phases**.  
+16: At this stage, the focus is **purely on standard data fetching and backend architecture**, not AI or RAG.
+2: 
+18: ---
+2: 
+20: ## Current Phase: Core App & Data Layer (NO AI)
+2: 
+22: 🚫 **IMPORTANT**  
+23: This project is **NOT** using RAG, embeddings, vector databases, or AI yet.
+2: 
+25: Do **not** introduce:
+26: - LlamaIndex usage
+27: - OpenAI calls
+28: - Vector databases
+29: - Streaming AI responses
+30: - AI-related abstractions
+2: 
+32: These will be added **later**, once the data layer is complete and stable.
+2: 
+18: ---
+2: 
+36: ## High-Level Goals
+2: 
+38: ### Primary Goals
+39: 1. Establish a **clean Next.js backend architecture**
+40: 2. Create **auth-protected API routes**
+41: 3. Define **clear data boundaries**
+42: 4. Keep logic modular and boring
+43: 5. Ensure the system is **AI-ready later without refactors**
+2: 
+45: ### Non-Goals (for now)
+46: - No AI features
+47: - No RAG pipelines
+48: - No background workers
+49: - No job queues
+50: - No edge runtimes
+2: 
+18: ---
+2: 
+54: ## Architectural Principles
+2: 
+56: ### 1. Clear Separation of Concerns
+2: 
+58: | Layer | Responsibility |
+59: |-----|----------------|
+60: | `app/api/*` | HTTP & auth boundary |
+61: | `lib/data/*` | Business logic & data access |
+62: | `lib/types/*` | Shared type contracts |
+63: | `components/*` | UI only |
+64: | `app/*` pages | Composition & routing |
+2: 
+66: - API routes **never** contain business logic
+67: - Data logic **never** imports Next.js or Clerk
+68: - Client components **never** access data directly
+2: 
+18: ---
+2: 
+72: ### 2. Authentication Rules
+2: 
+74: - Authentication is handled via **Clerk**
+75: - Auth is enforced **at the API boundary**
+76: - Every protected API route must:
+77:     - Identify the user
+78:     - Reject unauthenticated requests
+79: - Client code must never assume authorization
+2: 
+18: ---
+2: 
+83: ### 3. API Design Rules
+2: 
+85: - REST-style routes under `/app/api`
+86: - JSON-only request/response
+87: - Consistent response shape:
+2: 
+89: ```ts
+90: {
+91:   success: boolean;
+92:   data?: T;
+93:   error?: string;
+94: }

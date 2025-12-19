@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { ChevronLeft, Loader2, Trash2 } from "lucide-react";
 
@@ -16,8 +17,13 @@ import type { BoardGameWithGame, GameStatus } from "@/lib/types/board-game";
 const STATUSES: GameStatus[] = ["OWNED", "PLAYING", "COMPLETED", "WISHLIST"];
 const PAGE_SIZE = 25;
 
-export default function BoardDetailsPage({ params }: { params: { id: string } }) {
-  const boardId = params.id;
+export default function BoardDetailsPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const boardId = useMemo(() => {
+    const idParam = params?.id;
+    if (Array.isArray(idParam)) return idParam[0];
+    return idParam ?? "";
+  }, [params]);
   const [board, setBoard] = useState<Board | null>(null);
   const [boardError, setBoardError] = useState<string | null>(null);
   const [isLoadingBoard, setIsLoadingBoard] = useState(true);
@@ -40,6 +46,11 @@ export default function BoardDetailsPage({ params }: { params: { id: string } })
     "View and manage board games via /api/boards/:id and nested board-games routes. Public boards load without auth; mutations require Clerk.";
 
   const loadBoard = async () => {
+    if (!boardId) {
+      setBoardError("Missing board id.");
+      setIsLoadingBoard(false);
+      return;
+    }
     setIsLoadingBoard(true);
     setBoardError(null);
     try {
@@ -53,6 +64,10 @@ export default function BoardDetailsPage({ params }: { params: { id: string } })
   };
 
   const loadBoardGames = async (cursor?: string) => {
+    if (!boardId) {
+      setGamesError("Missing board id.");
+      return;
+    }
     setIsLoadingGames(true);
     setGamesError(null);
     try {
