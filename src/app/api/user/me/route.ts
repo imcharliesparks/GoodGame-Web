@@ -50,4 +50,3 @@ async function ensureDefaultBoards(token: string) {
     await createBoard(config, { token });
   }
 }
-}
