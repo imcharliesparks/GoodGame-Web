@@ -6,7 +6,11 @@ import { getCurrentUser } from "@/lib/data/user";
 import type { ApiResult } from "@/lib/types/api";
 import type { User } from "@/lib/types/user";
 
-const LIKED_BOARD_NAME = "Liked";
+const REQUIRED_BOARDS = [
+  { name: "Liked", description: "Games you liked", isPublic: true },
+  { name: "Wishlist", description: "Games you want to play", isPublic: true },
+  { name: "Library", description: "Games you own", isPublic: true },
+];
 
 export async function GET() {
   const authResult = await requireAuthToken();
@@ -19,7 +23,7 @@ export async function GET() {
 
   try {
     const data = await getCurrentUser({ token: authResult.token });
-    await ensureLikedBoard(authResult.token);
+    await ensureDefaultBoards(authResult.token);
     return NextResponse.json<ApiResult<User>>({
       success: true,
       data,
@@ -29,15 +33,14 @@ export async function GET() {
   }
 }
 
-async function ensureLikedBoard(token: string) {
+async function ensureDefaultBoards(token: string) {
   const boards = await listBoards({ limit: 50 }, { token });
-  const existing = boards.items.find(
-    (board) => board.name.toLowerCase() === LIKED_BOARD_NAME.toLowerCase(),
+  const existingNames = new Set(
+    boards.items.map((board) => board.name.toLowerCase()),
   );
-  if (existing) return existing;
 
-  return createBoard(
-    { name: LIKED_BOARD_NAME, description: "Games you liked", isPublic: false },
-    { token },
-  );
+  for (const config of REQUIRED_BOARDS) {
+    if (existingNames.has(config.name.toLowerCase())) continue;
+    await createBoard(config, { token });
+  }
 }

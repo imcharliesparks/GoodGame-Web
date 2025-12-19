@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { Check, Loader2, Plus, Shield, Sparkles } from "lucide-react";
 
@@ -33,9 +33,10 @@ const STATUSES: GameStatus[] = ["WISHLIST", "PLAYING", "OWNED", "COMPLETED"];
 type Props = {
   game: Game;
   onAdded?: (result: { boardName: string; boardGame: BoardGame }) => void;
+  trigger?: ReactNode;
 };
 
-export function AddToBoardSheet({ game, onAdded }: Props) {
+export function AddToBoardSheet({ game, onAdded, trigger }: Props) {
   const [open, setOpen] = useState(false);
   const [boards, setBoards] = useState<Board[]>([]);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
@@ -145,15 +146,17 @@ export function AddToBoardSheet({ game, onAdded }: Props) {
       }}
     >
       <SheetTrigger asChild>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          className="border-white/25 text-white hover:border-white hover:bg-white/10"
-        >
-          <Plus className="mr-2 size-4" />
-          Add to
-        </Button>
+        {trigger ?? (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            className="border-white/25 text-white hover:border-white hover:bg-white/10"
+          >
+            <Plus className="mr-2 size-4" />
+            Add to
+          </Button>
+        )}
       </SheetTrigger>
       <SheetContent
         side="right"

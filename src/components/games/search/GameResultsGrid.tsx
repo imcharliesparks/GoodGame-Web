@@ -1,15 +1,18 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { Check, Heart, Loader2 } from "lucide-react";
+import { Check, Ellipsis, Heart, Loader2 } from "lucide-react";
 
 import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
+import type { GameStatus } from "@/lib/types/board-game";
 import type { Board } from "@/lib/types/board";
 import type { Game } from "@/lib/types/game";
+
+type BoardKey = "liked" | "wishlist" | "library";
 
 type QuickAddState =
   | { status: "idle" }
@@ -17,18 +20,39 @@ type QuickAddState =
   | { status: "added"; boardName: string }
   | { status: "error"; message: string };
 
-const HEART_BOARD_NAME = "Liked";
+type QuickAddMap = Record<string, Partial<Record<BoardKey, QuickAddState>>>;
+
+const BOARD_CONFIG: Record<
+  BoardKey,
+  { name: string; description: string; isPublic: boolean; status: GameStatus }
+> = {
+  liked: { name: "Liked", description: "Games you liked", isPublic: true, status: "WISHLIST" },
+  wishlist: {
+    name: "Wishlist",
+    description: "Games you want to play",
+    isPublic: true,
+    status: "WISHLIST",
+  },
+  library: {
+    name: "Library",
+    description: "Games you own",
+    isPublic: true,
+    status: "OWNED",
+  },
+};
 
 export function GameResultsGrid({ games }: { games: Game[] }) {
-  const [likedBoardId, setLikedBoardId] = useState<string | null>(null);
-  const [quickAdd, setQuickAdd] = useState<Record<string, QuickAddState>>({});
-  const ensuringLikedRef = useRef<Promise<{ id: string; name: string }> | null>(null);
+  const [boardIds, setBoardIds] = useState<Partial<Record<BoardKey, string>>>({});
+  const [quickAdd, setQuickAdd] = useState<QuickAddMap>({});
+  const ensuringRef = useRef<Partial<Record<BoardKey, Promise<{ id: string; name: string }>>>>(
+    {},
+  );
 
   if (!games.length) return null;
 
-  const ensureLikedBoard = async (): Promise<{ id: string; name: string }> => {
-    if (likedBoardId) return { id: likedBoardId, name: HEART_BOARD_NAME };
-    if (ensuringLikedRef.current) return ensuringLikedRef.current;
+  const ensureBoard = async (key: BoardKey): Promise<{ id: string; name: string }> => {
+    if (boardIds[key]) return { id: boardIds[key]!, name: BOARD_CONFIG[key].name };
+    if (ensuringRef.current[key]) return ensuringRef.current[key]!;
 
     const promise = (async () => {
       let cursor: string | undefined;
@@ -37,67 +61,129 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
       while (!found) {
         const data = await fetchBoards({ limit: 50, cursor });
         found = data.items.find(
-          (board) => board.name.toLowerCase() === HEART_BOARD_NAME.toLowerCase(),
+          (board) => board.name.toLowerCase() === BOARD_CONFIG[key].name.toLowerCase(),
         );
         if (found || !data.nextCursor) break;
         cursor = data.nextCursor;
       }
 
       if (found) {
-        setLikedBoardId(found.id);
+        setBoardIds((prev) => ({ ...prev, [key]: found!.id }));
         return { id: found.id, name: found.name };
       }
 
-      const created = await createBoardClient({
-        name: HEART_BOARD_NAME,
-        description: "Games you liked",
-        isPublic: false,
-      });
-      setLikedBoardId(created.id);
+      const created = await createBoardClient(BOARD_CONFIG[key]);
+      setBoardIds((prev) => ({ ...prev, [key]: created.id }));
       return { id: created.id, name: created.name };
     })();
 
-    ensuringLikedRef.current = promise;
+    ensuringRef.current[key] = promise;
     try {
       return await promise;
     } finally {
-      ensuringLikedRef.current = null;
+      ensuringRef.current[key] = undefined;
     }
   };
 
-  const handleQuickLike = async (game: Game) => {
-    setQuickAdd((prev) => ({ ...prev, [game.id]: { status: "loading" } }));
+  const setQuickState = (gameId: string, key: BoardKey, state: QuickAddState) => {
+    setQuickAdd((prev) => ({
+      ...prev,
+      [gameId]: {
+        ...(prev[gameId] ?? {}),
+        [key]: state,
+      },
+    }));
+  };
+
+  const handleQuickAdd = async (game: Game, boardKey: BoardKey) => {
+    setQuickState(game.id, boardKey, { status: "loading" });
     try {
-      const board = await ensureLikedBoard();
+      const board = await ensureBoard(boardKey);
       await addBoardGameClient({
         boardId: board.id,
         gameId: game.id,
-        status: "WISHLIST",
+        status: BOARD_CONFIG[boardKey].status,
       });
-      setQuickAdd((prev) => ({ ...prev, [game.id]: { status: "added", boardName: board.name } }));
+      setQuickState(game.id, boardKey, {
+        status: "added",
+        boardName: board.name,
+      });
     } catch (err) {
-      setQuickAdd((prev) => ({
-        ...prev,
-        [game.id]: {
-          status: "error",
-          message: err instanceof Error ? err.message : "Failed to add to board.",
-        },
-      }));
+      setQuickState(game.id, boardKey, {
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed to add to board.",
+      });
     }
   };
 
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {games.map((game) => {
-        const quickState = quickAdd[game.id] ?? { status: "idle" };
-        const isQuickLoading = quickState.status === "loading";
-        const isQuickAdded = quickState.status === "added";
+        const likedState = quickAdd[game.id]?.liked ?? { status: "idle" };
+        const wishlistState = quickAdd[game.id]?.wishlist ?? { status: "idle" };
+        const libraryState = quickAdd[game.id]?.library ?? { status: "idle" };
+
+        const states = [likedState, wishlistState, libraryState];
+        const added = states.find((s) => s.status === "added") as
+          | Extract<QuickAddState, { status: "added" }>
+          | undefined;
+        const errored = states.find((s) => s.status === "error") as
+          | Extract<QuickAddState, { status: "error" }>
+          | undefined;
+        const actionMessage = added
+          ? `Added to ${added.boardName}`
+          : errored
+            ? errored.message
+            : null;
 
         return (
           <article
             key={game.id}
-            className="group rounded-xl border border-white/5 bg-gradient-to-br from-slate-800/70 via-slate-900/70 to-indigo-900/40 p-4 shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-indigo-500/30"
+            className="group relative rounded-xl border border-white/5 bg-gradient-to-br from-slate-800/70 via-slate-900/70 to-indigo-900/40 p-4 shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-indigo-500/30"
           >
+            <SignedIn>
+              <div className="absolute right-3 top-3 flex items-center gap-2">
+                <Button
+                  type="button"
+                  size="icon"
+                  variant="ghost"
+                  className={`h-9 w-9 rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10 ${
+                    likedState.status === "added" ? "text-rose-300" : ""
+                  }`}
+                  onClick={() => handleQuickAdd(game, "liked")}
+                  disabled={likedState.status === "loading"}
+                  aria-label="Quick like"
+                >
+                  {likedState.status === "loading" ? (
+                    <Loader2 className="size-4 animate-spin" />
+                  ) : (
+                    <Heart
+                      className={`size-4 ${
+                        likedState.status === "added" ? "fill-rose-300 text-rose-300" : ""
+                      }`}
+                    />
+                  )}
+                </Button>
+                <AddToBoardSheet
+                  game={game}
+                  trigger={
+                    <Button
+                      type="button"
+                      size="icon"
+                      variant="ghost"
+                      className="h-9 w-9 rounded-full border border-white/15 bg-white/5 text-white hover:bg-white/10"
+                      aria-label="Add to another board"
+                    >
+                      <Ellipsis className="size-4" />
+                    </Button>
+                  }
+                  onAdded={({ boardName }) =>
+                    setQuickState(game.id, "liked", { status: "added", boardName })
+                  }
+                />
+              </div>
+            </SignedIn>
+
             <div className="flex gap-3">
               <CoverImage url={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl} title={game.title} />
               <div className="flex flex-1 flex-col gap-2">
@@ -122,40 +208,34 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                   </p>
                 ) : null}
 
-                <div className="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <div className="mt-3 flex flex-wrap items-center gap-2">
                   <SignedIn>
-                    <div className="flex items-center gap-2">
-                      <Button
-                        type="button"
-                        size="sm"
-                        variant="ghost"
-                        className={`border border-transparent text-white transition hover:border-white/20 hover:bg-white/10 ${
-                          isQuickAdded ? "text-rose-300" : ""
-                        }`}
-                        onClick={() => handleQuickLike(game)}
-                        disabled={isQuickLoading}
-                      >
-                        {isQuickLoading ? (
-                          <Loader2 className="mr-2 size-4 animate-spin" />
-                        ) : (
-                          <Heart
-                            className={`mr-2 size-4 ${
-                              isQuickAdded ? "fill-rose-300 text-rose-300" : "text-white"
-                            }`}
-                          />
-                        )}
-                        {isQuickAdded ? "Liked" : "Quick like"}
-                      </Button>
-                      <AddToBoardSheet
-                        game={game}
-                        onAdded={({ boardName }) =>
-                          setQuickAdd((prev) => ({
-                            ...prev,
-                            [game.id]: { status: "added", boardName },
-                          }))
-                        }
-                      />
-                    </div>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="border border-white/15 bg-white/10 text-white hover:bg-white/20"
+                      onClick={() => handleQuickAdd(game, "library")}
+                      disabled={libraryState.status === "loading"}
+                    >
+                      {libraryState.status === "loading" ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
+                      Add to Library
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      className="border-white/25 text-white hover:border-white hover:bg-white/10"
+                      onClick={() => handleQuickAdd(game, "wishlist")}
+                      disabled={wishlistState.status === "loading"}
+                    >
+                      {wishlistState.status === "loading" ? (
+                        <Loader2 className="mr-2 size-4 animate-spin" />
+                      ) : null}
+                      Add to Wishlist
+                    </Button>
                   </SignedIn>
                   <SignedOut>
                     <SignInButton mode="modal">
@@ -171,14 +251,10 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                   </SignedOut>
 
                   <div className="min-w-[140px] text-xs text-indigo-100/80">
-                    {quickState.status === "added" ? (
+                    {actionMessage ? (
                       <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-1 text-emerald-100">
                         <Check className="size-3.5" />
-                        Added to {quickState.boardName}
-                      </span>
-                    ) : quickState.status === "error" ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-red-500/15 px-2 py-1 text-red-100">
-                        {quickState.message}
+                        {actionMessage}
                       </span>
                     ) : null}
                   </div>
