@@ -9,6 +9,7 @@ import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
+import { igdbImage } from "@/lib/igdbImage";
 import type { GameStatus } from "@/lib/types/board-game";
 import type { Board } from "@/lib/types/board";
 import type { Game } from "@/lib/types/game";
@@ -147,6 +148,10 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
           : errored
             ? errored.message
             : null;
+        const coverUrl = igdbImage(
+          game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl,
+          "t_thumb",
+        );
 
         return (
           <article
@@ -204,10 +209,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                 href={`/games/${game.id}`}
                 className="flex gap-3 rounded-lg px-1 py-1 transition hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
               >
-                <CoverImage
-                  url={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl}
-                  title={game.title}
-                />
+                <CoverImage url={coverUrl} title={game.title} />
                 <div className="flex flex-1 flex-col gap-2">
                   <h3 className="text-lg font-semibold leading-tight text-white underline decoration-indigo-400/50 underline-offset-4">
                     {game.title}
@@ -328,7 +330,7 @@ export function GameResultsLoadingGrid() {
   );
 }
 
-function CoverImage({ url, title }: { url?: string; title: string }) {
+function CoverImage({ url, title }: { url?: string | null; title: string }) {
   if (!url) {
     return (
       <div className="flex size-20 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs text-indigo-100/60">

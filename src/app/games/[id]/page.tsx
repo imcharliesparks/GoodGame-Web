@@ -19,6 +19,7 @@ import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { fetchGameById } from "@/lib/client/games";
+import { igdbImage } from "@/lib/igdbImage";
 import type { Game } from "@/lib/types/game";
 
 export default function GameDetailsPage() {
@@ -92,12 +93,12 @@ export default function GameDetailsPage() {
 
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:gap-8">
               <CoverImage
-                url={
+                url={igdbImage(
                   game.backgroundImageUrl ||
-                  game.headerImageUrl ||
-                  game.screenshotUrls[0] ||
-                  game.coverUrl
-                }
+                    game.headerImageUrl ||
+                    game.screenshotUrls[0] ||
+                    game.coverUrl,
+                )}
                 title={game.title}
               />
 
@@ -184,7 +185,7 @@ export default function GameDetailsPage() {
   );
 }
 
-function CoverImage({ url, title }: { url?: string; title: string }) {
+function CoverImage({ url, title }: { url?: string | null; title: string }) {
   if (!url) {
     return (
       <div className="flex h-52 w-full max-w-xs items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-indigo-100/60 lg:h-64">
@@ -238,12 +239,15 @@ function MetaList({
 }
 
 function ScreenshotStrip({ screenshots, title }: { screenshots: string[]; title: string }) {
-  if (!screenshots?.length) return null;
+  const normalizedScreenshots = (screenshots ?? [])
+    .map((url) => igdbImage(url))
+    .filter((url): url is string => Boolean(url));
+  if (!normalizedScreenshots.length) return null;
   return (
     <div className="space-y-3">
       <h2 className="text-lg font-semibold text-white">Screenshots</h2>
       <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {screenshots.map((url, index) => (
+        {normalizedScreenshots.map((url, index) => (
           <div
             key={`${url}-${index}`}
             className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
@@ -296,11 +300,12 @@ function Badge({ children }: { children: ReactNode }) {
 }
 
 function HeroImage({ game }: { game: Game }) {
-  const hero =
+  const hero = igdbImage(
     game.backgroundImageUrl ||
-    game.headerImageUrl ||
-    game.screenshotUrls[0] ||
-    game.coverUrl;
+      game.headerImageUrl ||
+      game.screenshotUrls[0] ||
+      game.coverUrl,
+  );
 
   if (!hero) return null;
 
@@ -355,4 +360,3 @@ function coerceDate(value: unknown): Date | null {
 
   return null;
 }
-
