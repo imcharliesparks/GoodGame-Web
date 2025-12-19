@@ -1,163 +1,322 @@
-import Link from "next/link";
-import { notFound } from "next/navigation";
-import { ArrowLeft, ExternalLink } from "lucide-react";
+"use client";
 
+import { useEffect, useMemo, useState, type ReactNode } from "react";
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import {
+  Calendar,
+  ChevronLeft,
+  ExternalLink,
+  Gamepad2,
+  Globe2,
+  Loader2,
+  Sparkles,
+  Tags,
+} from "lucide-react";
+
+import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
 import { AppShell } from "@/components/layout/AppShell";
-import type { ApiResult } from "@/lib/types/api";
+import { Button } from "@/components/ui/button";
+import { fetchGameById } from "@/lib/client/games";
 import type { Game } from "@/lib/types/game";
 
-type GamePageProps = {
-  params: { id: string };
-};
+export default function GameDetailsPage() {
+  const params = useParams<{ id?: string | string[] }>();
+  const gameId = useMemo(() => {
+    const idParam = params?.id;
+    if (Array.isArray(idParam)) return idParam[0];
+    return idParam ?? "";
+  }, [params]);
 
-async function loadGame(id: string): Promise<{ game?: Game; error?: string }> {
-  const response = await fetch(`${process.env.NEXT_PUBLIC_SITE_URL ? process.env.NEXT_PUBLIC_SITE_URL : ""}/api/games/${encodeURIComponent(id)}`, {
-    cache: "no-store",
-  });
+  const [game, setGame] = useState<Game | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
-  let payload: ApiResult<Game> | null = null;
-  try {
-    payload = (await response.json()) as ApiResult<Game>;
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    return { error: `Invalid JSON response: ${message}` };
-  }
+  const pageTitle = game?.title ?? (isLoading ? "Loading game..." : "Game");
+  const pageDescription =
+    "Loads a cached game via /api/games/:id from the GoodGame backend with full metadata.";
 
-  if (!response.ok) {
-    return { error: payload?.error ?? `Request failed (${response.status})` };
-  }
+  useEffect(() => {
+    const loadGame = async () => {
+      if (!gameId) {
+        setError("Missing game id.");
+        setIsLoading(false);
+        return;
+      }
 
-  if (!payload?.success) {
-    return { error: payload?.error ?? `Request failed (${response.status})` };
-  }
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchGameById(gameId);
+        setGame(data);
+      } catch (err) {
+        setError(err instanceof Error ? err.message : "Failed to load game.");
+      } finally {
+        setIsLoading(false);
+      }
+    };
 
-  return { game: payload.data };
-}
-
-export default async function GameDetailsPage({ params }: GamePageProps) {
-  const id = params.id?.trim();
-  if (!id) {
-    notFound();
-  }
-
-  const { game, error } = await loadGame(id);
-  const description =
-    "Displays a single cached game from /api/games/:id. The lookup also supports IGDB and RAWG variants from the docs.";
-
-  if (!game) {
-    return (
-      <AppShell title="Game not found" description={description}>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 text-indigo-100/80">
-          {error ?? "No game was returned for this id."}
-          <div className="mt-4">
-            <Link
-              href="/games"
-              className="inline-flex items-center gap-2 text-sm font-semibold text-indigo-200 hover:text-white"
-            >
-              <ArrowLeft className="size-4" />
-              Back to games
-            </Link>
-          </div>
-        </div>
-      </AppShell>
-    );
-  }
+    void loadGame();
+  }, [gameId]);
 
   return (
-    <AppShell title={game.title} description={description}>
-      <div className="grid gap-6 md:grid-cols-[2fr_1fr]">
-        <section className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-wrap gap-2 text-xs">
-              <span className="rounded-full bg-indigo-500/20 px-3 py-1 font-semibold uppercase tracking-wide text-indigo-100">
-                Source {game.source}
-              </span>
-              {game.metacritic ? (
-                <span className="rounded-full bg-emerald-500/20 px-3 py-1 font-semibold uppercase tracking-wide text-emerald-100">
-                  Metacritic {game.metacritic}
-                </span>
-              ) : null}
-              {game.esrbRating ? (
-                <span className="rounded-full bg-white/10 px-3 py-1 font-semibold uppercase tracking-wide text-indigo-100">
-                  ESRB {game.esrbRating}
-                </span>
-              ) : null}
+    <AppShell title={pageTitle} description={pageDescription}>
+      <div className="flex items-center gap-2 text-sm">
+        <Link
+          href="/games"
+          className="inline-flex items-center gap-2 text-indigo-100 underline decoration-indigo-500/50 underline-offset-4 hover:text-white"
+        >
+          <ChevronLeft className="size-4" />
+          Back to games
+        </Link>
+      </div>
+
+      <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
+        {error ? (
+          <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
+            {error}
+          </div>
+        ) : null}
+
+        {isLoading ? (
+          <div className="flex items-center gap-3 text-sm text-indigo-100/70">
+            <Loader2 className="size-4 animate-spin" />
+            Loading game details...
+          </div>
+        ) : null}
+
+        {game ? (
+          <div className="space-y-6">
+            <div className="flex flex-col gap-5 lg:flex-row lg:items-start">
+              <CoverImage
+                url={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl}
+                title={game.title}
+              />
+
+              <div className="flex flex-1 flex-col gap-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge>
+                    <Gamepad2 className="mr-1.5 size-4" />
+                    {game.source} source
+                  </Badge>
+                  {game.releaseDate ? (
+                    <Badge>
+                      <Calendar className="mr-1.5 size-4" />
+                      {formatDate(game.releaseDate)}
+                    </Badge>
+                  ) : null}
+                  {game.metacritic ? (
+                    <Badge>Metacritic {game.metacritic}</Badge>
+                  ) : null}
+                  {game.esrbRating ? <Badge>ESRB {game.esrbRating}</Badge> : null}
+                </div>
+
+                <div className="space-y-2">
+                  <h1 className="text-2xl font-semibold text-white">{game.title}</h1>
+                  <p className="text-sm leading-relaxed text-indigo-100/80">
+                    {game.description || "No description available."}
+                  </p>
+                </div>
+
+                <MetaList label="Platforms" values={game.platforms} icon={<Gamepad2 className="size-4" />} />
+                <MetaList label="Genres" values={game.genres} icon={<Tags className="size-4" />} />
+                <MetaList label="Publishers" values={game.publishers} icon={<Sparkles className="size-4" />} />
+                <MetaList label="Developers" values={game.developers} icon={<Sparkles className="size-4" />} />
+
+                <div className="flex flex-wrap gap-3">
+                  {game.websiteUrl ? (
+                    <Button
+                      type="button"
+                      asChild
+                      variant="outline"
+                      className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+                    >
+                      <Link href={game.websiteUrl} target="_blank" rel="noreferrer">
+                        <Globe2 className="mr-2 size-4" />
+                        Website
+                        <ExternalLink className="ml-1 size-4" />
+                      </Link>
+                    </Button>
+                  ) : null}
+                  <SignedIn>
+                    <AddToBoardSheet
+                      game={game}
+                      trigger={
+                        <Button
+                          type="button"
+                          className="bg-white/15 text-white hover:bg-white/25"
+                        >
+                          Save to board
+                        </Button>
+                      }
+                    />
+                  </SignedIn>
+                  <SignedOut>
+                    <SignInButton mode="modal">
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        className="border border-white/20 bg-white/10 text-white hover:bg-white/20"
+                      >
+                        Sign in to save
+                      </Button>
+                    </SignInButton>
+                  </SignedOut>
+                </div>
+
+                <IdRow game={game} />
+              </div>
             </div>
 
-            {game.coverUrl || game.headerImageUrl || game.backgroundImageUrl ? (
-              <div className="overflow-hidden rounded-xl border border-white/10">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl}
-                  alt={game.title}
-                  className="h-72 w-full object-cover"
-                  referrerPolicy="no-referrer"
-                />
-              </div>
-            ) : null}
-
-            <p className="text-sm leading-7 text-indigo-100/80">
-              {game.description || "No description available for this title."}
-            </p>
-
-            <dl className="grid grid-cols-1 gap-4 md:grid-cols-2">
-              <DetailItem label="Release date" value={formatDate(game.releaseDate)} />
-              <DetailItem label="Updated" value={formatDate(game.updated)} />
-              <DetailItem label="Platforms" value={formatList(game.platforms)} />
-              <DetailItem label="Genres" value={formatList(game.genres)} />
-              <DetailItem label="Developers" value={formatList(game.developers)} />
-              <DetailItem label="Publishers" value={formatList(game.publishers)} />
-              <DetailItem label="Tags" value={formatList(game.tags)} />
-            </dl>
+            <ScreenshotStrip screenshots={game.screenshotUrls} title={game.title} />
           </div>
-        </section>
-
-        <aside className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
-          <h2 className="text-lg font-semibold text-white">Identifiers</h2>
-          <dl className="mt-3 space-y-2 text-sm text-indigo-100/80">
-            <DetailItem label="GoodGame id" value={game.id} />
-            <DetailItem label="IGDB id" value={game.igdbId ? String(game.igdbId) : "—"} />
-            <DetailItem label="RAWG id" value={game.rawgId ? String(game.rawgId) : "—"} />
-            {game.websiteUrl ? (
-              <div className="flex items-center gap-2">
-                <span className="text-xs uppercase tracking-wide text-indigo-200">Website</span>
-                <Link
-                  href={game.websiteUrl}
-                  target="_blank"
-                  className="inline-flex items-center gap-1 text-indigo-100 underline decoration-indigo-500/50 underline-offset-2 hover:text-white"
-                >
-                  Visit <ExternalLink className="size-4" />
-                </Link>
-              </div>
-            ) : null}
-          </dl>
-        </aside>
+        ) : null}
       </div>
     </AppShell>
   );
 }
 
-function DetailItem({ label, value }: { label: string; value: string }) {
+function CoverImage({ url, title }: { url?: string; title: string }) {
+  if (!url) {
+    return (
+      <div className="flex h-52 w-full max-w-xs items-center justify-center rounded-xl border border-white/10 bg-white/5 text-sm text-indigo-100/60 lg:h-64">
+        No art
+      </div>
+    );
+  }
+
   return (
-    <div className="flex flex-col gap-1 rounded-lg border border-white/5 bg-white/5 p-3">
-      <span className="text-xs font-semibold uppercase tracking-wide text-indigo-200">{label}</span>
-      <span className="text-sm text-white">{value}</span>
+    <div className="relative h-52 w-full max-w-xs overflow-hidden rounded-xl border border-white/10 lg:h-64">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={title}
+        className="size-full object-cover transition duration-700 hover:scale-[1.02]"
+        loading="lazy"
+        referrerPolicy="no-referrer"
+      />
     </div>
   );
 }
 
-function formatList(values?: string[]) {
-  if (!values || values.length === 0) return "—";
-  return values.join(", ");
+function MetaList({
+  label,
+  values,
+  icon,
+}: {
+  label: string;
+  values?: string[];
+  icon?: JSX.Element;
+}) {
+  if (!values || values.length === 0) return null;
+  return (
+    <div className="flex flex-wrap items-center gap-2 text-sm text-indigo-100/80">
+      <span className="inline-flex items-center gap-1 rounded-full bg-white/10 px-2 py-1 font-semibold uppercase tracking-wide text-indigo-100/80">
+        {icon ? icon : null}
+        {label}
+      </span>
+      <div className="flex flex-wrap gap-2">
+        {values.map((value) => (
+          <span
+            key={`${label}-${value}`}
+            className="rounded-full bg-white/10 px-2 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100/70"
+          >
+            {value}
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScreenshotStrip({ screenshots, title }: { screenshots: string[]; title: string }) {
+  if (!screenshots?.length) return null;
+  return (
+    <div className="space-y-3">
+      <h2 className="text-lg font-semibold text-white">Screenshots</h2>
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {screenshots.map((url, index) => (
+          <div
+            key={`${url}-${index}`}
+            className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
+          >
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={url}
+              alt={`${title} screenshot ${index + 1}`}
+              className="h-48 w-full object-cover"
+              loading="lazy"
+              referrerPolicy="no-referrer"
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function IdRow({ game }: { game: Game }) {
+  const pairs: Array<{ label: string; value?: string | number }> = [
+    { label: "Game id", value: game.id },
+    { label: "IGDB id", value: game.igdbId },
+    { label: "RAWG id", value: game.rawgId },
+  ];
+
+  const filled = pairs.filter((pair) => pair.value !== undefined && pair.value !== null);
+  if (filled.length === 0) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 text-xs text-indigo-100/70">
+      {filled.map((pair) => (
+        <span
+          key={pair.label}
+          className="rounded-full bg-white/5 px-3 py-1 font-semibold uppercase tracking-wide"
+        >
+          {pair.label}: {pair.value}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function Badge({ children }: { children: ReactNode }) {
+  return (
+    <span className="inline-flex items-center rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100">
+      {children}
+    </span>
+  );
 }
 
 function formatDate(value: unknown) {
-  if (!value) return "—";
-  const date = new Date(value as string);
-  if (Number.isNaN(date.getTime())) return "—";
+  const date = coerceDate(value);
+  if (!date) return "Unknown date";
   return date.toLocaleDateString(undefined, {
     year: "numeric",
     month: "short",
     day: "numeric",
   });
+}
+
+function coerceDate(value: unknown): Date | null {
+  if (!value) return null;
+  if (value instanceof Date) {
+    return Number.isNaN(value.getTime()) ? null : value;
+  }
+
+  if (typeof value === "string" || typeof value === "number") {
+    const parsed = new Date(value);
+    return Number.isNaN(parsed.getTime()) ? null : parsed;
+  }
+
+  if (typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    const nested = record.$date ?? record.date;
+    if (typeof nested === "string" || typeof nested === "number") {
+      const parsed = new Date(nested);
+      return Number.isNaN(parsed.getTime()) ? null : parsed;
+    }
+  }
+
+  return null;
 }
