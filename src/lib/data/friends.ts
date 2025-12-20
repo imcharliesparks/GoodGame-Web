@@ -1,5 +1,4 @@
 import { argusRequestJson } from "@/lib/argus/http";
-import type { PaginatedResult } from "@/lib/types/api";
 import type { FriendRequest } from "@/lib/types/friend-request";
 import type { User } from "@/lib/types/user";
 
