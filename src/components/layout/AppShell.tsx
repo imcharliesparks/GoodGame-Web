@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { Gamepad2, HeartPulse, Home, ListChecks, Search, User2 } from "lucide-react";
+import { Gamepad2, HeartPulse, Home, ListChecks, Search, User2, Users } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -14,6 +14,7 @@ const links = [
   { href: "/games", label: "Games", icon: Gamepad2 },
   { href: "/games/search", label: "Search", icon: Search },
   { href: "/boards", label: "Boards", icon: ListChecks },
+  { href: "/friends", label: "Friends", icon: Users },
   { href: "/profile", label: "Profile", icon: User2 },
 ];
 

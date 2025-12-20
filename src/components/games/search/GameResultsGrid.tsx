@@ -5,7 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
 import { AlertCircle, Check, Ellipsis, Heart, Loader2 } from "lucide-react";
 
-import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
+import { AddToBoardDialog } from "@/components/games/AddToBoardDialog";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
@@ -188,7 +188,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                     />
                   )}
                 </Button>
-                <AddToBoardSheet
+                <AddToBoardDialog
                   game={game}
                   trigger={
                     <Button

@@ -139,6 +139,7 @@ async function parseBody(
     string,
     unknown
   >;
+  const platforms = (body as Record<string, unknown>).platforms;
 
   if (typeof gameId !== "string" || gameId.trim() === "") {
     return { error: "gameId is required.", status: 400 };
@@ -163,6 +164,21 @@ async function parseBody(
     return { error: "notes must be a string.", status: 400 };
   }
 
+  let parsedPlatforms: string[] | undefined;
+  if (platforms !== undefined) {
+    if (!Array.isArray(platforms)) {
+      return { error: "platforms must be an array of strings.", status: 400 };
+    }
+
+    parsedPlatforms = platforms
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => value.length > 0);
+
+    if (parsedPlatforms.length === 0) {
+      parsedPlatforms = undefined;
+    }
+  }
+
   let numericOrder: number | undefined;
   if (order !== undefined) {
     numericOrder = Number(order);
@@ -175,6 +191,7 @@ async function parseBody(
     boardId,
     gameId: gameId.trim(),
     status: status as GameStatus | undefined,
+    platforms: parsedPlatforms,
     rating: numericRating,
     notes: notes as string | undefined,
     order: numericOrder,
