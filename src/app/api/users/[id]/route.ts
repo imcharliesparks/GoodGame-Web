@@ -6,11 +6,13 @@ import { getUserById } from "@/lib/data/friends";
 import type { ApiResult } from "@/lib/types/api";
 import type { User } from "@/lib/types/user";
 
-export async function GET(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const id = params?.id?.trim();
+type RouteContext = {
+  params: { id: string } | Promise<{ id: string }>;
+};
+
+export async function GET(_request: NextRequest, context: RouteContext) {
+  const params = await context.params;
+  const id = params.id?.trim();
 
   const authResult = await requireAuthToken();
   if ("error" in authResult) {

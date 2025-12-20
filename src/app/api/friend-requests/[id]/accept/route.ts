@@ -6,11 +6,13 @@ import { acceptFriendRequest } from "@/lib/data/friends";
 import type { ApiResult } from "@/lib/types/api";
 import type { FriendRequest } from "@/lib/types/friend-request";
 
-export async function POST(
-  _request: NextRequest,
-  { params }: { params: { id: string } },
-) {
-  const id = params?.id?.trim();
+type RouteContext = {
+  params: { id: string } | Promise<{ id: string }>;
+};
+
+export async function POST(_request: NextRequest, context: RouteContext) {
+  const params = await context.params;
+  const id = params.id?.trim();
 
   const authResult = await requireAuthToken();
   if ("error" in authResult) {
