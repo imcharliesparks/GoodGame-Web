@@ -110,8 +110,6 @@ Upserts/returns the user document for the authenticated Clerk user.
 - Errors:
   - `404 { "error": "Not found" }`
 
----
-
 ## Friends (protected)
 
 ### `GET /api/friends`
