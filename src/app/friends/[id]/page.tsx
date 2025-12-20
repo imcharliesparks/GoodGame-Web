@@ -9,7 +9,6 @@ import { ArrowLeft, Check, Loader2, UserMinus, UserPlus } from "lucide-react";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import {
-  addFriendClient,
   fetchFriends,
   fetchUserProfile,
   removeFriendClient,
