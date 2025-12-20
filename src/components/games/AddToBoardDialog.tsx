@@ -45,7 +45,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
 
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>();
   const [newBoardName, setNewBoardName] = useState("");
-  const [newBoardPublic, setNewBoardPublic] = useState(false);
+  const [newBoardPublic, setNewBoardPublic] = useState(true);
   const [status, setStatus] = useState<GameStatus>("WISHLIST");
   const [platform, setPlatform] = useState<string | undefined>(undefined);
 
@@ -109,7 +109,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
         targetBoardName = created.name;
         setSelectedBoardId(created.id);
         setNewBoardName("");
-        setNewBoardPublic(false);
+        setNewBoardPublic(true);
       }
 
       if (!targetBoardId) {
@@ -229,9 +229,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-sm font-semibold text-white">Create new board</p>
-                <p className="text-xs text-indigo-100/70">
-                  No description field; edit later if needed.
-                </p>
+                <p className="text-xs text-indigo-100/70">Public by default; make it private here.</p>
               </div>
               {newBoardName.trim() ? <Sparkles className="size-4 text-indigo-300" /> : null}
             </div>
@@ -249,13 +247,13 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               <label className="inline-flex items-center gap-2 text-sm text-indigo-100">
                 <input
                   type="checkbox"
-                  checked={newBoardPublic}
-                  onChange={(event) => setNewBoardPublic(event.target.checked)}
+                  checked={!newBoardPublic}
+                  onChange={(event) => setNewBoardPublic(!event.target.checked)}
                   className="size-4 rounded border-white/30 bg-white/5 text-indigo-400 focus:ring-indigo-400"
                 />
                 <span className="flex items-center gap-1.5">
                   <Shield className="size-4 text-indigo-200" />
-                  Make board public
+                  Make board private
                 </span>
               </label>
             </div>
