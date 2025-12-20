@@ -7,10 +7,9 @@ import type { ApiResult } from "@/lib/types/api";
 
 export async function DELETE(
   _request: NextRequest,
-  context: { params: Promise<{ friendId: string }> },
+  { params }: { params: { friendId: string } },
 ) {
-  const { friendId: rawFriendId } = await context.params;
-  const friendId = rawFriendId?.trim();
+  const friendId = params?.friendId?.trim();
 
   const authResult = await requireAuthToken();
   if ("error" in authResult) {

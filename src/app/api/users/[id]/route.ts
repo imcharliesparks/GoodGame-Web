@@ -8,10 +8,9 @@ import type { User } from "@/lib/types/user";
 
 export async function GET(
   _request: NextRequest,
-  context: { params: Promise<{ id: string }> },
+  { params }: { params: { id: string } },
 ) {
-  const { id: rawId } = await context.params;
-  const id = rawId?.trim();
+  const id = params?.id?.trim();
 
   const authResult = await requireAuthToken();
   if ("error" in authResult) {
