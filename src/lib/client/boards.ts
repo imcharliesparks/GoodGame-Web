@@ -77,6 +77,7 @@ export async function addBoardGameClient(input: {
   boardId: string;
   gameId: string;
   status?: GameStatus;
+  platform?: string;
   rating?: number;
   notes?: string;
   order?: number;
@@ -88,6 +89,7 @@ export async function addBoardGameClient(input: {
       body: JSON.stringify({
         gameId: input.gameId,
         status: input.status,
+        platform: input.platform,
         rating: input.rating,
         notes: input.notes,
         order: input.order,

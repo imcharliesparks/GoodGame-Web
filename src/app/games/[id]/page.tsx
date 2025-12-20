@@ -15,7 +15,7 @@ import {
   Tags,
 } from "lucide-react";
 
-import { AddToBoardSheet } from "@/components/games/AddToBoardSheet";
+import { AddToBoardDialog } from "@/components/games/AddToBoardDialog";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { fetchGameById } from "@/lib/client/games";
@@ -148,7 +148,7 @@ export default function GameDetailsPage() {
                     </Button>
                   ) : null}
                   <SignedIn>
-                    <AddToBoardSheet
+                    <AddToBoardDialog
                       game={game}
                       trigger={
                         <Button

@@ -8,6 +8,7 @@ export type BoardGame = {
   gameId: string;
   order: number;
   status: GameStatus;
+  platform?: string;
   rating?: number;
   notes?: string;
   addedAt: string | Date;

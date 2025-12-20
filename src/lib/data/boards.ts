@@ -45,6 +45,7 @@ export type AddBoardGameInput = {
   boardId: string;
   gameId: string;
   status?: GameStatus;
+  platform?: string;
   rating?: number;
   notes?: string;
   order?: number;
@@ -182,6 +183,7 @@ export async function addBoardGame(
     body: {
       gameId: input.gameId,
       status: input.status,
+      platform: input.platform,
       rating: input.rating,
       notes: input.notes,
       order: input.order,
