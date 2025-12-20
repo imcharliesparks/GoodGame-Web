@@ -95,8 +95,82 @@ Upserts/returns the user document for the authenticated Clerk user.
   - `401 { "error": "Unauthorized" }`
   - `400 { "error": "Email missing from token (ensure Clerk emits email via `{{user.primary_email_address}}`)" }`
 
+### `GET /api/users/search`
+
+- Query params:
+  - `q` (required, min length 2; matches email/name/username)
+  - `limit` (default `20`, max `50`)
+- Returns:
+  - `{ "users": User[] }` (excludes the caller)
+
+### `GET /api/users/:id`
+
+- Returns:
+  - `{ "user": User }`
+- Errors:
+  - `404 { "error": "Not found" }`
+
 ---
 
+<<<<<<< Updated upstream
+=======
+## Friends (protected)
+
+### `GET /api/friends`
+
+- Returns:
+  - `{ "friends": User[] }` (ordered by when the friendship was created)
+
+### `POST /api/friends`
+
+- Body JSON:
+  - `{ "friendId": string }`
+- Behavior:
+  - Adds a mutual friendship between the caller and `friendId` (no self-friend; friend must exist).
+- Returns:
+  - `{ "friend": User }`
+
+### `DELETE /api/friends/:friendId`
+
+- Behavior:
+  - Removes the friendship in both directions.
+- Returns:
+  - `{ "success": true }`
+
+### `GET /api/friend-requests`
+
+- Query params:
+  - `direction` (default `incoming`, values: `incoming` | `outgoing`)
+  - `limit` (default `20`, max `50`)
+- Returns:
+  - `{ "requests": Array<FriendRequest & { requester: User | null; receiver: User | null }> }` (pending only)
+
+### `POST /api/friend-requests`
+
+- Body JSON:
+  - `{ "friendId": string }`
+- Behavior:
+  - Creates a pending request (or auto-accepts an existing inverse pending request).
+- Returns:
+  - `{ "request": FriendRequest, "accepted": boolean }`
+
+### `POST /api/friend-requests/:id/accept`
+
+- Behavior:
+  - Accepts a pending request (only receiver can accept) and creates mutual friendships.
+- Returns:
+  - `{ "request": FriendRequest }`
+
+### `POST /api/friend-requests/:id/deny`
+
+- Behavior:
+  - Denies a pending request (only receiver can deny).
+- Returns:
+  - `{ "request": FriendRequest }`
+
+---
+
+>>>>>>> Stashed changes
 ## Boards (protected)
 
 ### `GET /api/boards`
@@ -156,7 +230,7 @@ Upserts/returns the user document for the authenticated Clerk user.
 ### `POST /api/boards/:boardId/board-games`
 
 - Body JSON:
-  - `{ "gameId": string, "status"?: GameStatus, "rating"?: number, "notes"?: string, "order"?: number }`
+  - `{ "gameId": string, "status"?: GameStatus, "rating"?: number, "notes"?: string, "platforms"?: string[], "order"?: number }`
 - Returns:
   - `BoardGame`
 - Notes:
@@ -165,7 +239,7 @@ Upserts/returns the user document for the authenticated Clerk user.
 ### `PATCH /api/boards/:boardId/board-games/:gameId`
 
 - Body JSON (any subset):
-  - `{ "status"?: GameStatus, "rating"?: number, "notes"?: string }`
+  - `{ "status"?: GameStatus, "rating"?: number, "notes"?: string, "platforms"?: string[] }`
 - Returns:
   - `BoardGame`
 
