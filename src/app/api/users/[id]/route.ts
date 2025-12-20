@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 
 import { requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
@@ -7,9 +7,12 @@ import type { ApiResult } from "@/lib/types/api";
 import type { User } from "@/lib/types/user";
 
 export async function GET(
-  _request: Request,
-  { params }: { params: { id: string } },
+  _request: NextRequest,
+  context: { params: Promise<{ id: string }> },
 ) {
+  const { id: rawId } = await context.params;
+  const id = rawId?.trim();
+
   const authResult = await requireAuthToken();
   if ("error" in authResult) {
     return NextResponse.json<ApiResult<null>>(
@@ -18,7 +21,6 @@ export async function GET(
     );
   }
 
-  const id = params?.id?.trim();
   if (!id) {
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: "User id is required." },
