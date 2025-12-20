@@ -112,8 +112,6 @@ Upserts/returns the user document for the authenticated Clerk user.
 
 ---
 
-<<<<<<< Updated upstream
-=======
 ## Friends (protected)
 
 ### `GET /api/friends`
@@ -170,7 +168,6 @@ Upserts/returns the user document for the authenticated Clerk user.
 
 ---
 
->>>>>>> Stashed changes
 ## Boards (protected)
 
 ### `GET /api/boards`
