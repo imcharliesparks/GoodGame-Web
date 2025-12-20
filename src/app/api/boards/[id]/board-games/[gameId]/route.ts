@@ -106,9 +106,14 @@ async function parseBody(
     return { error: "Invalid JSON body.", status: 400 };
   }
 
-  const { status, rating, notes } = body as Record<string, unknown>;
+  const { status, rating, notes, platforms } = body as Record<string, unknown>;
 
-  if (status === undefined && rating === undefined && notes === undefined) {
+  if (
+    status === undefined &&
+    rating === undefined &&
+    notes === undefined &&
+    platforms === undefined
+  ) {
     return { error: "No fields to update.", status: 400 };
   }
 
@@ -131,10 +136,26 @@ async function parseBody(
     return { error: "notes must be a string.", status: 400 };
   }
 
+  let parsedPlatforms: string[] | undefined;
+  if (platforms !== undefined) {
+    if (!Array.isArray(platforms)) {
+      return { error: "platforms must be an array of strings.", status: 400 };
+    }
+
+    parsedPlatforms = platforms
+      .map((value) => (typeof value === "string" ? value.trim() : ""))
+      .filter((value) => value.length > 0);
+
+    if (parsedPlatforms.length === 0) {
+      parsedPlatforms = undefined;
+    }
+  }
+
   return {
     boardId,
     gameId,
     status: status as GameStatus | undefined,
+    platforms: parsedPlatforms,
     rating: numericRating,
     notes: notes as string | undefined,
   };

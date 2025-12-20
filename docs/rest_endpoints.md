@@ -122,7 +122,7 @@ Upserts/returns the user document for the authenticated Clerk user.
 - Body JSON:
   - `{ "friendId": string }`
 - Behavior:
-  - Adds a mutual friendship between the caller and `friendId` (no self-friend; friend must exist).
+  - Adds a mutual friendship between the caller and `friendId` immediately (no self-friend; friend must exist); use when you intend to bypass the request/accept flow.
 - Returns:
   - `{ "friend": User }`
 
@@ -146,9 +146,9 @@ Upserts/returns the user document for the authenticated Clerk user.
 - Body JSON:
   - `{ "friendId": string }`
 - Behavior:
-  - Creates a pending request (or auto-accepts an existing inverse pending request).
+  - Creates a pending request (or auto-accepts an existing inverse pending request); use when the receiver should accept/deny.
 - Returns:
-  - `{ "request": FriendRequest, "accepted": boolean }`
+  - `{ "request": FriendRequest, "accepted": boolean }` (`accepted` is `true` when auto-accepted because the other user already requested you)
 
 ### `POST /api/friend-requests/:id/accept`
 

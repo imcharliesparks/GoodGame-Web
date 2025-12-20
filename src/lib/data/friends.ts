@@ -46,6 +46,10 @@ export async function addFriend(
   friendId: string,
   options: ArgusCallOptions = {},
 ) {
+  /**
+   * Immediately creates a mutual friendship (no pending state) between the caller and friendId.
+   * Returns the confirmed friend record `{ friend: User }`; caller must be authorized and not self-friending.
+   */
   return argusRequestJson<{ friend: User }>({
     path: "/api/friends",
     method: "POST",
@@ -90,6 +94,10 @@ export async function sendFriendRequest(
   friendId: string,
   options: ArgusCallOptions = {},
 ) {
+  /**
+   * Starts the friend-request workflow; may auto-accept if a reciprocal pending request exists.
+   * Returns `{ request: FriendRequest; accepted: boolean }` where `accepted` signals mutual auto-accept; caller must be authorized.
+   */
   return argusRequestJson<{ request: FriendRequest; accepted: boolean }>({
     path: "/api/friend-requests",
     method: "POST",

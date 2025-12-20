@@ -116,11 +116,13 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
         throw new Error("Select an existing board or create a new one first.");
       }
 
+      const trimmedPlatform = (platform ?? "").trim();
+
       const added = await addBoardGameClient({
         boardId: targetBoardId,
         gameId: game.id,
         status,
-        platform: (platform ?? "").trim() || undefined,
+        platforms: trimmedPlatform ? [trimmedPlatform] : undefined,
       });
 
       setSuccessMessage(`Added to ${targetBoardName ?? "board"}.`);

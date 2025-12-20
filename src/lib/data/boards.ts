@@ -45,7 +45,7 @@ export type AddBoardGameInput = {
   boardId: string;
   gameId: string;
   status?: GameStatus;
-  platform?: string;
+  platforms?: string[];
   rating?: number;
   notes?: string;
   order?: number;
@@ -55,6 +55,7 @@ export type UpdateBoardGameInput = {
   boardId: string;
   gameId: string;
   status?: GameStatus;
+  platforms?: string[];
   rating?: number;
   notes?: string;
 };
@@ -183,7 +184,7 @@ export async function addBoardGame(
     body: {
       gameId: input.gameId,
       status: input.status,
-      platform: input.platform,
+      platforms: input.platforms,
       rating: input.rating,
       notes: input.notes,
       order: input.order,
@@ -201,6 +202,7 @@ export async function updateBoardGame(
     token: options.token,
     body: {
       status: input.status,
+      platforms: input.platforms,
       rating: input.rating,
       notes: input.notes,
     },

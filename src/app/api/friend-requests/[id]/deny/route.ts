@@ -7,7 +7,7 @@ import type { ApiResult } from "@/lib/types/api";
 import type { FriendRequest } from "@/lib/types/friend-request";
 
 type RouteContext = {
-  params: { id: string } | Promise<{ id: string }>;
+  params: Promise<{ id: string }>;
 };
 
 export async function POST(_request: NextRequest, context: RouteContext) {
