@@ -9,6 +9,7 @@ import type {
 
 export type ArgusCallOptions = {
   token?: string;
+  cache?: RequestCache;
 };
 
 export type BoardListInput = {
@@ -82,6 +83,7 @@ export async function listBoards(
   >({
     path: "/api/boards",
     token: options.token,
+    cache: options.cache,
     query: {
       limit: input.limit,
       cursor: input.cursor,
@@ -105,6 +107,7 @@ export async function createBoard(
     path: "/api/boards",
     method: "POST",
     token: options.token,
+    cache: options.cache,
     body: input,
   });
 }
@@ -117,6 +120,7 @@ export async function updateBoard(
     path: `/api/boards/${encodeURIComponent(input.id)}`,
     method: "PATCH",
     token: options.token,
+    cache: options.cache,
     body: {
       name: input.name,
       description: input.description,
@@ -134,6 +138,7 @@ export async function deleteBoard(
     path: `/api/boards/${encodeURIComponent(id)}`,
     method: "DELETE",
     token: options.token,
+    cache: options.cache,
   });
 }
 
@@ -145,6 +150,7 @@ export async function reorderBoard(
     path: `/api/boards/${encodeURIComponent(input.id)}/reorder`,
     method: "POST",
     token: options.token,
+    cache: options.cache,
     body: { order: input.order },
   });
 }
@@ -158,6 +164,7 @@ export async function listBoardGames(
   >({
     path: `/api/boards/${encodeURIComponent(input.boardId)}/board-games`,
     token: options.token,
+    cache: options.cache,
     query: {
       limit: input.limit,
       cursor: input.cursor,
@@ -181,6 +188,7 @@ export async function addBoardGame(
     path: `/api/boards/${encodeURIComponent(input.boardId)}/board-games`,
     method: "POST",
     token: options.token,
+    cache: options.cache,
     body: {
       gameId: input.gameId,
       status: input.status,
@@ -200,6 +208,7 @@ export async function updateBoardGame(
     path: `/api/boards/${encodeURIComponent(input.boardId)}/board-games/${encodeURIComponent(input.gameId)}`,
     method: "PATCH",
     token: options.token,
+    cache: options.cache,
     body: {
       status: input.status,
       platforms: input.platforms,
@@ -218,6 +227,7 @@ export async function deleteBoardGame(
     path: `/api/boards/${encodeURIComponent(boardId)}/board-games/${encodeURIComponent(gameId)}`,
     method: "DELETE",
     token: options.token,
+    cache: options.cache,
   });
 }
 
@@ -229,6 +239,7 @@ export async function reorderBoardGame(
     path: `/api/boards/${encodeURIComponent(input.boardId)}/board-games/${encodeURIComponent(input.gameId)}/reorder`,
     method: "POST",
     token: options.token,
+    cache: options.cache,
     body: { order: input.order },
   });
 }
