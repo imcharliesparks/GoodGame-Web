@@ -16,6 +16,7 @@ import type { ApiResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
 import type { BoardGameWithGame } from "@/lib/types/board-game";
 import type { Game } from "@/lib/types/game";
+import { ArgusHttpError } from "@/lib/argus/http";
 import { requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
 
@@ -195,8 +196,38 @@ async function loadBoardsWithGames(token: string, boardId?: string): Promise<Boa
 
 async function selectBoards(token: string, boardId?: string) {
   if (boardId) {
-    const board = await getBoard(boardId, { token, cache: "no-store" });
-    return [board];
+    try {
+      const board = await getBoard(boardId, { token, cache: "no-store" });
+      return [board];
+    } catch (error) {
+      const status =
+        error instanceof ArgusHttpError
+          ? error.status
+          : error instanceof Response
+            ? error.status
+            : undefined;
+      const message =
+        error instanceof Error ? error.message : "Unable to fetch the requested board.";
+
+      if (status === 401 || status === 403) {
+        throw NextResponse.json<ApiResult<null>>(
+          { success: false, error: "You do not have access to this board." },
+          { status: 403 },
+        );
+      }
+
+      if (status === 404) {
+        throw NextResponse.json<ApiResult<null>>(
+          { success: false, error: "Board not found." },
+          { status: 404 },
+        );
+      }
+
+      throw NextResponse.json<ApiResult<null>>(
+        { success: false, error: message },
+        { status: status ?? 500 },
+      );
+    }
   }
 
   return collectBoards(token);
