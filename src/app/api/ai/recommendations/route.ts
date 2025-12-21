@@ -181,7 +181,7 @@ async function collectBoardGames(boardId: string, token: string) {
       { token, cache: "no-store" },
     );
     items.push(...page.items);
-    cursor = page.nextCursor;
+    cursor = "nextCursor" in page ? page.nextCursor : undefined;
   } while (cursor && items.length < MAX_BOARD_GAMES);
 
   return items;
