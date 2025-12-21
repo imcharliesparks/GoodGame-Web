@@ -11,7 +11,7 @@ import {
 import type { GameStatus } from "@/lib/types/board-game";
 import type { Board } from "@/lib/types/board";
 import type { Game } from "@/lib/types/game";
-import { AIGameResultsCard, type BoardKey, type QuickAddState } from "./AIGameResultsCard";
+import { GameResultsCard, type BoardKey, type QuickAddState } from "./GameResultsCard";
 
 type QuickAddMap = Record<string, Partial<Record<BoardKey, QuickAddState>>>;
 
@@ -176,7 +176,7 @@ export function GameResultsGrid({
         const membership = memberships?.[game.id] ?? [];
 
         return (
-          <AIGameResultsCard
+          <GameResultsCard
             key={game.id}
             game={game}
             reason={reason}

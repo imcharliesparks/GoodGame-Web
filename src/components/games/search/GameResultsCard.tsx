@@ -30,7 +30,7 @@ type QuickAddSnapshot = {
   library: QuickAddState;
 };
 
-export function AIGameResultsCard({
+export function GameResultsCard({
   game,
   reason,
   quickAddState,
