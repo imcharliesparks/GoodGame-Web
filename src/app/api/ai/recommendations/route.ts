@@ -1,8 +1,10 @@
-import { generateObject } from "ai";
+import { generateObject, generateText } from "ai";
 import { NextResponse } from "next/server";
 
 import { INTENT_SYSTEM_PROMPT, RANKING_SYSTEM_PROMPT } from "@/lib/ai/prompts";
-import { getDefaultModel } from "@/lib/ai/openai";
+import { getGroqModel } from "@/lib/ai/groq";
+import { getOpenAiModel } from "@/lib/ai/openai";
+import { getProvider, type AiProvider } from "@/lib/ai/provider";
 import {
   GameRecommendationIntentSchema,
   RankedRecommendationsSchema,
@@ -52,19 +54,20 @@ export async function POST(request: Request) {
     );
   }
 
-  let model: ReturnType<typeof getDefaultModel>;
+  const provider = getProvider();
+  let model: ReturnType<typeof getOpenAiModel> | ReturnType<typeof getGroqModel>;
   try {
-    model = getDefaultModel();
+    model = provider === "GROQ" ? getGroqModel() : getOpenAiModel();
   } catch (error) {
     const message =
-      error instanceof Error ? error.message : "OPENAI_API_KEY is not configured.";
+      error instanceof Error ? error.message : "AI provider is not configured.";
     return NextResponse.json<ApiResult<null>>(
       { success: false, error: message },
       { status: 500 },
     );
   }
 
-  const intent = await extractIntent(model, parsedBody.query);
+  const intent = await extractIntent(model, parsedBody.query, provider);
 
   let board: Board | undefined;
   let libraryItems: BoardGameWithGame[] = [];
@@ -103,6 +106,7 @@ export async function POST(request: Request) {
     intent,
     cappedCandidates,
     maxResults,
+    provider,
   );
 
   const results = validateRankedResults(ranked, cappedCandidates, maxResults);
@@ -191,7 +195,15 @@ function pickLibraryBoard(boards: Board[]) {
   return named ?? boards[0];
 }
 
-async function extractIntent(model: ReturnType<typeof getDefaultModel>, query: string) {
+async function extractIntent(
+  model: ReturnType<typeof getOpenAiModel> | ReturnType<typeof getGroqModel>,
+  query: string,
+  provider: AiProvider,
+) {
+  if (provider === "GROQ") {
+    return extractIntentGroq(model, query);
+  }
+
   try {
     const result = await generateObject({
       model,
@@ -213,6 +225,81 @@ type Candidate = {
   playState: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   platforms: string[];
 };
+
+async function extractIntentGroq(
+  model: ReturnType<typeof getGroqModel>,
+  query: string,
+): Promise<GameRecommendationIntent> {
+  try {
+    const prompt = [
+      "You extract intent for game recommendations.",
+      "Respond with 6 lines in this exact order:",
+      "genres: comma-separated values or none",
+      "platforms: comma-separated values or none",
+      "ownership: owned|wishlist|unknown",
+      "playStatus: not_started|in_progress|completed|unknown",
+      "mood: relaxed|intense|short-session|unknown",
+      "maxResults: integer 1-20 or blank",
+      `User query: ${query}`,
+    ].join("\n");
+
+    const result = await generateText({
+      model,
+      system: "Parse the request and emit only the 6 lines in the specified format.",
+      prompt,
+    });
+
+    return parseGroqIntent(result.text);
+  } catch (error) {
+    console.error("Groq intent extraction failed", error);
+    return {};
+  }
+}
+
+function parseGroqIntent(text: string): GameRecommendationIntent {
+  const intent: GameRecommendationIntent = {};
+  const lines = text.split("\n").map((line) => line.trim());
+  for (const line of lines) {
+    if (!line.includes(":")) continue;
+    const [rawKey, rawValue] = line.split(":");
+    const key = rawKey.trim().toLowerCase();
+    const value = rawValue?.trim() ?? "";
+    if (!value || value.toLowerCase() === "none" || value.toLowerCase() === "unknown") continue;
+
+    if (key === "genres" || key === "platforms") {
+      const parts = value
+        .split(",")
+        .map((part) => part.trim())
+        .filter(Boolean);
+      if (parts.length > 0) {
+        if (key === "genres") intent.genres = parts;
+        else intent.platforms = parts;
+      }
+    } else if (key === "ownership") {
+      const normalized = value.toUpperCase();
+      if (normalized === "OWNED" || normalized === "WISHLIST") {
+        intent.ownership = normalized;
+      }
+    } else if (key === "playstatus") {
+      const normalized = value.toUpperCase();
+      if (normalized === "NOT_STARTED" || normalized === "IN_PROGRESS" || normalized === "COMPLETED") {
+        intent.playStatus = normalized as GameRecommendationIntent["playStatus"];
+      }
+    } else if (key === "mood") {
+      const normalized = value.toLowerCase();
+      if (normalized === "relaxed" || normalized === "intense" || normalized === "short-session") {
+        intent.mood = normalized as GameRecommendationIntent["mood"];
+      }
+    } else if (key === "maxresults" || key === "max") {
+      const num = Number.parseInt(value, 10);
+      if (Number.isFinite(num) && num >= 1 && num <= 20) {
+        intent.maxResults = num;
+      }
+    }
+  }
+
+  return intent;
+}
 
 function selectCandidates(
   items: BoardGameWithGame[],
@@ -238,12 +325,16 @@ function selectCandidates(
       continue;
     }
 
-    if (
-      intent.genres &&
-      intent.genres.length > 0 &&
-      !hasOverlap(intent.genres, item.game.genres)
-    ) {
-      continue;
+    if (intent.genres && intent.genres.length > 0) {
+      const genreLikeFields = [
+        ...item.game.genres,
+        ...item.game.tags,
+        ...item.game.publishers,
+        ...item.game.developers,
+      ];
+      if (!hasOverlap(intent.genres, genreLikeFields)) {
+        continue;
+      }
     }
 
     candidates.push({ game: item.game, item, playState, platforms });
@@ -273,14 +364,21 @@ function capCandidates(candidates: Candidate[]) {
   return sorted.slice(0, MAX_CANDIDATES);
 }
 
+type RankingOutput = { results: Array<{ gameId: string; reason: string }> };
+
 async function rankCandidates(
-  model: ReturnType<typeof getDefaultModel>,
+  model: ReturnType<typeof getOpenAiModel> | ReturnType<typeof getGroqModel>,
   query: string,
   intent: GameRecommendationIntent,
   candidates: Candidate[],
   maxResults: number,
-): Promise<RankedRecommendations | undefined> {
+  provider: AiProvider,
+): Promise<RankingOutput | undefined> {
   if (candidates.length === 0) return { results: [] };
+
+  if (provider === "GROQ") {
+    return rankWithGroq(model as ReturnType<typeof getGroqModel>, query, intent, candidates, maxResults);
+  }
 
   const prompt = buildRankingPrompt(query, intent, candidates, maxResults);
 
@@ -331,8 +429,42 @@ function buildRankingPrompt(
   ].join("\n");
 }
 
+function buildGroqRankingPrompt(
+  query: string,
+  intent: GameRecommendationIntent,
+  candidates: Candidate[],
+  maxResults: number,
+) {
+  const intentJson = JSON.stringify(intent ?? {});
+  const candidateLines = candidates
+    .map((candidate) => {
+      const summary = truncate(candidate.game.description ?? "", 200);
+      const genres = candidate.game.genres.join(", ") || "unknown";
+      const platforms = candidate.platforms.join(", ") || "unknown";
+      const status = candidate.item.status;
+      const playState = candidate.playState;
+      const metacritic =
+        candidate.game.metacritic !== undefined
+          ? `metacritic ${candidate.game.metacritic}`
+          : "metacritic n/a";
+
+      return `gameId=${candidate.game.id} | title=${candidate.game.title} | status=${status} | play=${playState} | platforms=${platforms} | genres=${genres} | ${metacritic} | summary=${summary}`;
+    })
+    .join("\n");
+
+  return [
+    `User query: ${query}`,
+    `Parsed intent JSON: ${intentJson}`,
+    `You must pick up to ${maxResults} games from the candidate list below.`,
+    `Format: each line -> gameId=<id> | reason=<one short reason>`,
+    `Only use provided gameIds. Keep reasons to 1-2 sentences.`,
+    `Candidates:`,
+    candidateLines,
+  ].join("\n");
+}
+
 function validateRankedResults(
-  ranked: RankedRecommendations | undefined,
+  ranked: RankingOutput | undefined,
   candidates: Candidate[],
   maxResults: number,
 ) {
@@ -399,8 +531,19 @@ function statusPriority(status: BoardGameWithGame["status"]) {
 }
 
 function hasOverlap(a: string[], b: string[]) {
-  const setA = new Set(a.map((value) => value.toLowerCase()));
-  return b.some((value) => setA.has(value.toLowerCase()));
+  const normalize = (value: string) => value.trim().toLowerCase();
+  const listA = a.map(normalize);
+  const listB = b.map(normalize);
+
+  for (const left of listA) {
+    for (const right of listB) {
+      if (left === right) return true;
+      if (left.includes(right)) return true;
+      if (right.includes(left)) return true;
+    }
+  }
+
+  return false;
 }
 
 function mergePlatforms(base: string[], overrides?: string[]) {
@@ -413,4 +556,47 @@ function mergePlatforms(base: string[], overrides?: string[]) {
 function truncate(value: string, limit: number) {
   if (value.length <= limit) return value;
   return `${value.slice(0, limit - 3)}...`;
+}
+
+async function rankWithGroq(
+  model: ReturnType<typeof getGroqModel>,
+  query: string,
+  intent: GameRecommendationIntent,
+  candidates: Candidate[],
+  maxResults: number,
+): Promise<RankingOutput | undefined> {
+  const prompt = buildGroqRankingPrompt(query, intent, candidates, maxResults);
+
+  try {
+    const result = await generateText({
+      model,
+      system: [
+        "Rank the provided games. Only use gameIds provided.",
+        "Return one line per recommendation using: gameId=<id> | reason=<short reason>",
+      ].join("\n"),
+      prompt,
+    });
+
+    return { results: parseGroqRanking(result.text, maxResults) };
+  } catch (error) {
+    console.error("Groq ranking failed", error);
+    return undefined;
+  }
+}
+
+function parseGroqRanking(text: string, maxResults: number): Array<{ gameId: string; reason: string }> {
+  const lines = text.split("\n").map((line) => line.trim()).filter(Boolean);
+  const results: Array<{ gameId: string; reason: string }> = [];
+
+  for (const line of lines) {
+    if (results.length >= maxResults) break;
+    const match = line.match(/gameId\s*=\s*([^|]+)\|\s*reason\s*=\s*(.+)/i);
+    if (!match) continue;
+    const gameId = match[1].trim();
+    const reason = match[2].trim();
+    if (!gameId || !reason) continue;
+    results.push({ gameId, reason });
+  }
+
+  return results;
 }
