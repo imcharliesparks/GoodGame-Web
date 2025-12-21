@@ -3,21 +3,13 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import {
-  Gamepad2,
-  HeartPulse,
-  Home,
-  ListChecks,
-  Search,
-  Sparkles,
-  User2,
-  Users,
-} from "lucide-react";
+import { Gamepad2, HeartPulse, Home, ListChecks, Search, Sparkles, User2, Users } from "lucide-react";
 
+import { MobileNav, type NavLink } from "@/components/layout/MobileNav";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
-const links = [
+const links: NavLink[] = [
   { href: "/", label: "Home", icon: Home },
   { href: "/health", label: "Health", icon: HeartPulse },
   { href: "/games", label: "Games", icon: Gamepad2 },
@@ -57,37 +49,40 @@ export function AppShell({ title, description, actions, children }: AppShellProp
             </div>
             <span>GoodGame</span>
           </Link>
-          <nav className="hidden items-center gap-1 rounded-full bg-white/5 p-1 text-sm backdrop-blur md:flex">
-            {links.map((link) => (
-              <Link
-                key={link.href}
-                href={link.href}
-                className={cn(
-                  "flex items-center gap-2 rounded-full px-3 py-2 text-indigo-100 transition",
-                  link.href === activeHref
-                    ? "bg-indigo-500/20 text-white shadow-sm shadow-indigo-800/50"
-                    : "hover:bg-white/10 hover:text-white",
-                )}
-              >
-                <link.icon className="size-4" />
-                <span>{link.label}</span>
-              </Link>
-            ))}
-          </nav>
           <div className="flex items-center gap-2">
-            <SignedIn>
-              <UserButton />
-            </SignedIn>
-            <SignedOut>
-              <SignInButton mode="modal">
-                <Button
-                  variant="outline"
-                  className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+            <MobileNav links={links} activeHref={activeHref} />
+            <nav className="hidden items-center gap-1 rounded-full bg-white/5 p-1 text-sm backdrop-blur md:flex">
+              {links.map((link) => (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  className={cn(
+                    "flex items-center gap-2 rounded-full px-3 py-2 text-indigo-100 transition",
+                    link.href === activeHref
+                      ? "bg-indigo-500/20 text-white shadow-sm shadow-indigo-800/50"
+                      : "hover:bg-white/10 hover:text-white",
+                  )}
                 >
-                  Sign in
-                </Button>
-              </SignInButton>
-            </SignedOut>
+                  <link.icon className="size-4" />
+                  <span>{link.label}</span>
+                </Link>
+              ))}
+            </nav>
+            <div className="flex items-center gap-2">
+              <SignedIn>
+                <UserButton />
+              </SignedIn>
+              <SignedOut>
+                <SignInButton mode="modal">
+                  <Button
+                    variant="outline"
+                    className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+                  >
+                    Sign in
+                  </Button>
+                </SignInButton>
+              </SignedOut>
+            </div>
           </div>
         </div>
       </header>
