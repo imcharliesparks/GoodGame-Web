@@ -5,8 +5,8 @@ This doc describes how the GoodGame web app implements Retrieval-Augmented Gener
 ## High-Level Flow
 1. **Auth boundary (Clerk):** Next.js API route ensures a signed-in user and mints a Clerk JWT for Argus (`Authorization: Bearer <token>`).
 2. **Deterministic retrieval (Argus REST):**
-   - Fetch boards; pick the Library board (case-insensitive “Library”, otherwise the first board).
-   - Fetch board-games for that board (paginated, `cache: 'no-store'`), join with game metadata.
+   - Fetch boards (or a specific board if `boardId` is provided to the route).
+   - Fetch board-games for each included board (paginated, `cache: 'no-store'`), joined with game metadata.
    - Filter/cap candidates locally in TypeScript—no LLM retrieval.
 3. **Intent extraction (LLM #1):**
    - OpenAI provider: `generateObject` with Zod schema (`GameRecommendationIntentSchema`).
@@ -47,7 +47,7 @@ This doc describes how the GoodGame web app implements Retrieval-Augmented Gener
 - Argus/Clerk env must also be set (`ARGUS_URL`, `CLERK_JWT_TEMPLATE_NAME`, Clerk keys).
 
 ## Retrieval & Filtering Rules
-- **Board selection:** Prefer board named “Library” (case-insensitive); otherwise first board.
+- **Board selection:** Accepts optional `boardId` to target a single board; otherwise aggregates across all boards (up to a total cap).
 - **Pagination caps:** Boards page size 100; board-games page size 100; cap at 500 items.
 - **Candidate filters:**
   - Exclude items with `game` null.
@@ -84,6 +84,6 @@ This doc describes how the GoodGame web app implements Retrieval-Augmented Gener
 
 ## Usage Notes
 - Set required envs: `ARGUS_URL`, Clerk keys, `CLERK_JWT_TEMPLATE_NAME`, and `OPENAI_API_KEY` or `GROQ_API_KEY` (+ `CURRENT_RAG_PROVIDER`, optional `GROQ_MODEL`).
-- Library board must contain games; otherwise response will be empty.
+- If no boards have games, the response will be empty.
 - Structured outputs are only used on OpenAI; Groq uses plain-text parsing to avoid `json_schema` limitations.
 
