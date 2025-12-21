@@ -11,11 +11,12 @@ import {
   type GameRecommendationIntent,
   type RankedRecommendations,
 } from "@/lib/ai/types";
-import { listBoardGames, listBoards } from "@/lib/data/boards";
+import { getBoard, listBoardGames, listBoards } from "@/lib/data/boards";
 import type { ApiResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
 import type { BoardGameWithGame } from "@/lib/types/board-game";
 import type { Game } from "@/lib/types/game";
+import { ArgusHttpError } from "@/lib/argus/http";
 import { requireAuthToken } from "../../_lib/auth";
 import { respondWithError } from "../../_lib/errors";
 
@@ -23,17 +24,22 @@ export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 const BOARD_PAGE_SIZE = 100;
-const MAX_BOARD_GAMES = 500;
+const MAX_TOTAL_BOARD_GAMES = 500;
 const MAX_CANDIDATES = 20;
 const DEFAULT_RESULTS = 8;
 
 type RecommendationResult = {
-  results: Array<{ gameId: string; title: string; reason: string }>;
+  results: Array<{
+    gameId: string;
+    title: string;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }>;
   debug?: {
     intent: GameRecommendationIntent;
     candidateCount: number;
-    boardId?: string;
-    boardName?: string;
+    boards: Array<{ id: string; name: string; itemCount: number }>;
+    requestedBoardId?: string;
   };
 };
 
@@ -69,17 +75,15 @@ export async function POST(request: Request) {
 
   const intent = await extractIntent(model, parsedBody.query, provider);
 
-  let board: Board | undefined;
-  let libraryItems: BoardGameWithGame[] = [];
+  let boardCollections: BoardCollection[] = [];
   try {
-    const library = await loadLibrary(authResult.token);
-    board = library.board;
-    libraryItems = library.items;
+    boardCollections = await loadBoardsWithGames(authResult.token, parsedBody.boardId);
   } catch (error) {
     return respondWithError(error);
   }
 
-  if (!board || libraryItems.length === 0) {
+  const totalItems = boardCollections.reduce((sum, entry) => sum + entry.items.length, 0);
+  if (boardCollections.length === 0 || totalItems === 0) {
     return NextResponse.json<ApiResult<RecommendationResult>>({
       success: true,
       data: {
@@ -87,13 +91,23 @@ export async function POST(request: Request) {
         debug:
           process.env.NODE_ENV === "production"
             ? undefined
-            : { intent, candidateCount: 0, boardId: board?.id, boardName: board?.name },
+            : {
+                intent,
+                candidateCount: 0,
+                boards: boardCollections.map((entry) => ({
+                  id: entry.board.id,
+                  name: entry.board.name,
+                  itemCount: entry.items.length,
+                })),
+                requestedBoardId: parsedBody.boardId,
+              },
       },
     });
   }
 
-  const candidates = selectCandidates(libraryItems, intent);
-  const cappedCandidates = capCandidates(candidates);
+  const candidates = selectCandidates(boardCollections, intent);
+  const membershipMap = buildMembershipMap(candidates);
+  const cappedCandidates = capCandidates(candidates, parsedBody.boardId);
   const maxResults = Math.min(
     intent.maxResults ?? DEFAULT_RESULTS,
     MAX_CANDIDATES,
@@ -109,7 +123,13 @@ export async function POST(request: Request) {
     provider,
   );
 
-  const results = validateRankedResults(ranked, cappedCandidates, maxResults);
+  const results = validateRankedResults(
+    ranked,
+    cappedCandidates,
+    maxResults,
+    parsedBody.boardId,
+    membershipMap,
+  );
 
   return NextResponse.json<ApiResult<RecommendationResult>>({
     success: true,
@@ -121,8 +141,12 @@ export async function POST(request: Request) {
           : {
               intent,
               candidateCount: cappedCandidates.length,
-              boardId: board.id,
-              boardName: board.name,
+              boards: boardCollections.map((entry) => ({
+                id: entry.board.id,
+                name: entry.board.name,
+                itemCount: entry.items.length,
+              })),
+              requestedBoardId: parsedBody.boardId,
             },
     },
   });
@@ -130,7 +154,7 @@ export async function POST(request: Request) {
 
 async function parseBody(
   request: Request,
-): Promise<{ query: string } | { error: string; status: number }> {
+): Promise<{ query: string; boardId?: string } | { error: string; status: number }> {
   let body: unknown;
   try {
     body = await request.json();
@@ -138,27 +162,80 @@ async function parseBody(
     return { error: "Invalid JSON body.", status: 400 };
   }
 
-  const query = typeof body === "object" && body !== null ? (body as Record<string, unknown>).query : undefined;
+  const payload = typeof body === "object" && body !== null ? (body as Record<string, unknown>) : {};
+  const query = payload.query;
+  const boardIdRaw = payload.boardId;
+  const boardId =
+    typeof boardIdRaw === "string" && boardIdRaw.trim().length > 0 ? boardIdRaw.trim() : undefined;
+
   if (typeof query !== "string" || query.trim().length === 0) {
     return { error: "Query is required.", status: 400 };
   }
 
-  return { query: query.trim() };
+  return { query: query.trim(), boardId };
 }
 
-async function loadLibrary(token: string) {
-  const boards = await collectBoards(token);
-  const board = pickLibraryBoard(boards);
-  if (!board) return { board: undefined, items: [] as BoardGameWithGame[] };
+type BoardCollection = { board: Board; items: BoardGameWithGame[] };
 
-  const items = await collectBoardGames(board.id, token);
-  return { board, items };
+async function loadBoardsWithGames(token: string, boardId?: string): Promise<BoardCollection[]> {
+  const boards = await selectBoards(token, boardId);
+  if (boards.length === 0) return [];
+
+  const collections: BoardCollection[] = [];
+  let remainingBudget = MAX_TOTAL_BOARD_GAMES;
+
+  for (const board of boards) {
+    if (remainingBudget <= 0) break;
+    const items = await collectBoardGames(board.id, token, remainingBudget);
+    remainingBudget -= items.length;
+    collections.push({ board, items });
+  }
+
+  return collections;
+}
+
+async function selectBoards(token: string, boardId?: string) {
+  if (boardId) {
+    try {
+      const board = await getBoard(boardId, { token, cache: "no-store" });
+      return [board];
+    } catch (error) {
+      const status =
+        error instanceof ArgusHttpError
+          ? error.status
+          : error instanceof Response
+            ? error.status
+            : undefined;
+      const message =
+        error instanceof Error ? error.message : "Unable to fetch the requested board.";
+
+      if (status === 401 || status === 403) {
+        throw NextResponse.json<ApiResult<null>>(
+          { success: false, error: "You do not have access to this board." },
+          { status: 403 },
+        );
+      }
+
+      if (status === 404) {
+        throw NextResponse.json<ApiResult<null>>(
+          { success: false, error: "Board not found." },
+          { status: 404 },
+        );
+      }
+
+      throw NextResponse.json<ApiResult<null>>(
+        { success: false, error: message },
+        { status: status ?? 500 },
+      );
+    }
+  }
+
+  return collectBoards(token);
 }
 
 async function collectBoards(token: string) {
   const boards: Board[] = [];
   let cursor: string | undefined;
-  let totalGames = 0;
 
   do {
     const page = await listBoards(
@@ -166,35 +243,31 @@ async function collectBoards(token: string) {
       { token, cache: "no-store" },
     );
     boards.push(...page.items);
-    totalGames = boards.reduce((sum, board) => sum + countBoardGames(board), 0);
     cursor = "nextCursor" in page ? page.nextCursor : undefined;
-  } while (cursor && totalGames < MAX_BOARD_GAMES);
+  } while (cursor);
 
   return boards;
 }
 
-async function collectBoardGames(boardId: string, token: string) {
+async function collectBoardGames(boardId: string, token: string, budget = MAX_TOTAL_BOARD_GAMES) {
   const items: BoardGameWithGame[] = [];
   let cursor: string | undefined;
 
+  if (budget <= 0) return items;
+
   do {
+    const limit = Math.min(BOARD_PAGE_SIZE, budget - items.length);
+    if (limit <= 0) break;
+
     const page = await listBoardGames(
-      { boardId, limit: BOARD_PAGE_SIZE, cursor },
+      { boardId, limit, cursor },
       { token, cache: "no-store" },
     );
     items.push(...page.items);
     cursor = "nextCursor" in page ? page.nextCursor : undefined;
-  } while (cursor && items.length < MAX_BOARD_GAMES);
+  } while (cursor && items.length < budget);
 
   return items;
-}
-
-function pickLibraryBoard(boards: Board[]) {
-  if (boards.length === 0) return undefined;
-  const named = boards.find(
-    (board) => board.name.trim().toLowerCase() === "library",
-  );
-  return named ?? boards[0];
 }
 
 async function extractIntent(
@@ -226,7 +299,17 @@ type Candidate = {
   item: BoardGameWithGame;
   playState: "NOT_STARTED" | "IN_PROGRESS" | "COMPLETED";
   platforms: string[];
+  board: Board;
 };
+
+type MembershipMap = Map<
+  string,
+  Array<{
+    id: string;
+    name: string;
+    status?: string;
+  }>
+>;
 
 async function extractIntentGroq(
   model: ReturnType<typeof getGroqModel>,
@@ -304,56 +387,66 @@ function parseGroqIntent(text: string): GameRecommendationIntent {
 }
 
 function selectCandidates(
-  items: BoardGameWithGame[],
+  collections: BoardCollection[],
   intent: GameRecommendationIntent,
 ) {
   const candidates: Candidate[] = [];
 
-  for (const item of items) {
-    if (!item.game) continue;
+  for (const collection of collections) {
+    for (const item of collection.items) {
+      if (!item.game) continue;
 
-    const playState = normalizePlayState(item.status);
-    if (intent.playStatus && intent.playStatus !== playState) continue;
+      const playState = normalizePlayState(item.status);
+      if (intent.playStatus && intent.playStatus !== playState) continue;
 
-    if (intent.ownership === "WISHLIST" && item.status !== "WISHLIST") continue;
-    if (intent.ownership === "OWNED" && item.status === "WISHLIST") continue;
+      if (intent.ownership === "WISHLIST" && item.status !== "WISHLIST") continue;
+      if (intent.ownership === "OWNED" && item.status === "WISHLIST") continue;
 
-    const platforms = mergePlatforms(item.game.platforms, item.platforms);
-    if (
-      intent.platforms &&
-      intent.platforms.length > 0 &&
-      !hasOverlap(intent.platforms, platforms, { aliasMap: PLATFORM_ALIASES })
-    ) {
-      continue;
-    }
+      const platforms = mergePlatforms(item.game.platforms, item.platforms);
+      if (
+        intent.platforms &&
+        intent.platforms.length > 0 &&
+        !hasOverlap(intent.platforms, platforms, { aliasMap: PLATFORM_ALIASES })
+      ) {
+        continue;
+      }
 
-    if (intent.genres && intent.genres.length > 0) {
-      // Prefer strict genre/tag matches to avoid false positives from publisher/developer names.
-      const primaryGenreFields = [...item.game.genres, ...item.game.tags];
-      const hasPrimaryMatch = hasOverlap(intent.genres, primaryGenreFields);
+      if (intent.genres && intent.genres.length > 0) {
+        // Prefer strict genre/tag matches to avoid false positives from publisher/developer names.
+        const primaryGenreFields = [...item.game.genres, ...item.game.tags];
+        const hasPrimaryMatch = hasOverlap(intent.genres, primaryGenreFields);
 
-      if (!hasPrimaryMatch) {
-        const shouldUseFallback =
-          intent.includeRelatedFields === true;
-        const fallbackFields = shouldUseFallback
-          ? [...item.game.publishers, ...item.game.developers]
-          : [];
-        if (!hasOverlap(intent.genres, fallbackFields)) {
-          continue;
+        if (!hasPrimaryMatch) {
+          const shouldUseFallback =
+            intent.includeRelatedFields === true;
+          const fallbackFields = shouldUseFallback
+            ? [...item.game.publishers, ...item.game.developers]
+            : [];
+          if (!hasOverlap(intent.genres, fallbackFields)) {
+            continue;
+          }
         }
       }
-    }
 
-    candidates.push({ game: item.game, item, playState, platforms });
+      candidates.push({ game: item.game, item, playState, platforms, board: collection.board });
+    }
   }
 
   return candidates;
 }
 
-function capCandidates(candidates: Candidate[]) {
+function capCandidates(candidates: Candidate[], primaryBoardId?: string) {
   const sorted = [...candidates].sort((a, b) => {
+    const boardPriority = primaryBoardId
+      ? Number(b.board.id === primaryBoardId) - Number(a.board.id === primaryBoardId)
+      : 0;
+    if (boardPriority !== 0) return boardPriority;
+
     const statusRank = statusPriority(a.item.status) - statusPriority(b.item.status);
     if (statusRank !== 0) return statusRank;
+
+    const boardRank = boardOrder(a.board) - boardOrder(b.board);
+    if (boardRank !== 0) return boardRank;
 
     const metacriticA = a.game.metacritic ?? -1;
     const metacriticB = b.game.metacritic ?? -1;
@@ -368,7 +461,31 @@ function capCandidates(candidates: Candidate[]) {
     return a.game.title.localeCompare(b.game.title);
   });
 
-  return sorted.slice(0, MAX_CANDIDATES);
+  // Deduplicate by gameId across boards, keeping the best-ranked occurrence.
+  const seen = new Set<string>();
+  const deduped: Candidate[] = [];
+  for (const candidate of sorted) {
+    if (deduped.length >= MAX_CANDIDATES) break;
+    if (seen.has(candidate.game.id)) continue;
+    seen.add(candidate.game.id);
+    deduped.push(candidate);
+  }
+
+  return deduped;
+}
+
+function buildMembershipMap(candidates: Candidate[]): MembershipMap {
+  const membership: MembershipMap = new Map();
+
+  for (const candidate of candidates) {
+    const list = membership.get(candidate.game.id) ?? [];
+    if (!list.some((entry) => entry.id === candidate.board.id)) {
+      list.push({ id: candidate.board.id, name: candidate.board.name, status: candidate.item.status });
+    }
+    membership.set(candidate.game.id, list);
+  }
+
+  return membership;
 }
 
 type RankingOutput = { results: Array<{ gameId: string; reason: string }> };
@@ -422,8 +539,9 @@ function buildRankingPrompt(
         candidate.game.metacritic !== undefined
           ? `metacritic: ${candidate.game.metacritic}`
           : "metacritic: n/a";
+      const boardName = candidate.board.name ?? "board";
 
-      return `${index + 1}. ${candidate.game.title} (gameId: ${candidate.game.id}; status: ${status}; playState: ${playState}; platforms: ${platforms}; genres: ${genres}; ${metacritic}; summary: ${summary})`;
+      return `${index + 1}. ${candidate.game.title} (gameId: ${candidate.game.id}; board: ${boardName}; status: ${status}; playState: ${playState}; platforms: ${platforms}; genres: ${genres}; ${metacritic}; summary: ${summary})`;
     })
     .join("\n");
 
@@ -454,8 +572,9 @@ function buildGroqRankingPrompt(
         candidate.game.metacritic !== undefined
           ? `metacritic ${candidate.game.metacritic}`
           : "metacritic n/a";
+      const boardName = candidate.board.name ?? "board";
 
-      return `gameId=${candidate.game.id} | title=${candidate.game.title} | status=${status} | play=${playState} | platforms=${platforms} | genres=${genres} | ${metacritic} | summary=${summary}`;
+      return `gameId=${candidate.game.id} | title=${candidate.game.title} | board=${boardName} | status=${status} | play=${playState} | platforms=${platforms} | genres=${genres} | ${metacritic} | summary=${summary}`;
     })
     .join("\n");
 
@@ -474,6 +593,8 @@ function validateRankedResults(
   ranked: RankingOutput | undefined,
   candidates: Candidate[],
   maxResults: number,
+  primaryBoardId?: string,
+  membershipMap?: MembershipMap,
 ) {
   if (candidates.length === 0) return [];
 
@@ -497,20 +618,42 @@ function validateRankedResults(
       gameId: candidate.game.id,
       title: candidate.game.title,
       reason,
+      boards: membershipMap?.get(candidate.game.id) ?? [
+        { id: candidate.board.id, name: candidate.board.name, status: candidate.item.status },
+      ],
     });
   }
 
-  if (valid.length > 0) return valid;
+  if (valid.length > 0) {
+    if (primaryBoardId) {
+      valid.sort((a, b) => {
+        const aCandidate = candidateMap.get(a.gameId);
+        const bCandidate = candidateMap.get(b.gameId);
+        const aPrimary = aCandidate?.board.id === primaryBoardId;
+        const bPrimary = bCandidate?.board.id === primaryBoardId;
+        if (aPrimary === bPrimary) return 0;
+        return aPrimary ? -1 : 1;
+      });
+    }
+    return valid;
+  }
 
-  return deterministicFallback(candidates, maxResults);
+  return deterministicFallback(candidates, maxResults, membershipMap);
 }
 
-function deterministicFallback(candidates: Candidate[], maxResults: number) {
+function deterministicFallback(
+  candidates: Candidate[],
+  maxResults: number,
+  membershipMap?: MembershipMap,
+) {
   const fallback = candidates.slice(0, maxResults);
   return fallback.map((candidate) => ({
     gameId: candidate.game.id,
     title: candidate.game.title,
-    reason: "Matches your request and is already in your library.",
+    reason: "Matches your request and is already in your boards.",
+    boards: membershipMap?.get(candidate.game.id) ?? [
+      { id: candidate.board.id, name: candidate.board.name, status: candidate.item.status },
+    ],
   }));
 }
 
@@ -590,16 +733,12 @@ function mergePlatforms(base: string[], overrides?: string[]) {
   return Array.from(merged);
 }
 
-function countBoardGames(board: Board) {
-  // Boards API does not expose counts in the type; accept common shapes if present.
+function boardOrder(board: Board) {
   const maybeRecord = board as unknown as Record<string, unknown>;
-  if ("gameCount" in maybeRecord && typeof maybeRecord.gameCount === "number") {
-    return maybeRecord.gameCount;
+  if ("order" in maybeRecord && typeof maybeRecord.order === "number") {
+    return maybeRecord.order;
   }
-  if ("games" in maybeRecord && Array.isArray(maybeRecord.games)) {
-    return maybeRecord.games.length;
-  }
-  return 0;
+  return Number.MAX_SAFE_INTEGER;
 }
 
 function truncate(value: string, limit: number) {

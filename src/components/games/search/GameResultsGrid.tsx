@@ -1,26 +1,17 @@
 "use client";
 
-import Link from "next/link";
-import { useMemo, useRef, useState } from "react";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { AlertCircle, Check, Ellipsis, Heart, Loader2 } from "lucide-react";
-
-import { AddToBoardDialog } from "@/components/games/AddToBoardDialog";
-import { Button } from "@/components/ui/button";
+import { useRef, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
-import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
-import { igdbImage } from "@/lib/igdbImage";
+import {
+  addBoardGameClient,
+  createBoardClient,
+  deleteBoardGameClient,
+  fetchBoards,
+} from "@/lib/client/boards";
 import type { GameStatus } from "@/lib/types/board-game";
 import type { Board } from "@/lib/types/board";
 import type { Game } from "@/lib/types/game";
-
-type BoardKey = "liked" | "wishlist" | "library";
-
-type QuickAddState =
-  | { status: "idle" }
-  | { status: "loading" }
-  | { status: "added"; boardName: string }
-  | { status: "error"; message: string };
+import { GameResultsCard, type BoardKey, type QuickAddState } from "./GameResultsCard";
 
 type QuickAddMap = Record<string, Partial<Record<BoardKey, QuickAddState>>>;
 
@@ -43,19 +34,14 @@ const BOARD_CONFIG: Record<
   },
 };
 
-const ICON_BUTTON_CLASSES =
-  "h-9 w-9 rounded-full bg-white/5 backdrop-blur border border-white/10 text-white/70 hover:bg-white/10 hover:border-white/20 hover:text-white active:translate-y-[1px] active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:opacity-40 disabled:pointer-events-none transition";
-const PRIMARY_BUTTON_CLASSES =
-  "h-10 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 text-white font-medium shadow-lg shadow-indigo-900/30 hover:brightness-105 active:brightness-95 active:translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:opacity-60 disabled:shadow-none disabled:pointer-events-none transition";
-const SECONDARY_BUTTON_CLASSES =
-  "h-10 rounded-full border border-white/30 text-white/90 bg-white/5 hover:bg-white/10 hover:border-white/50 active:bg-white/15 active:translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:opacity-60 disabled:pointer-events-none transition";
-
 export function GameResultsGrid({
   games,
   reasons,
+  memberships,
 }: {
   games: Game[];
   reasons?: Record<string, string>;
+  memberships?: Record<string, Array<{ id: string; name: string; status?: string }>>;
 }) {
   const [boardIds, setBoardIds] = useState<Partial<Record<BoardKey, string>>>({});
   const [quickAdd, setQuickAdd] = useState<QuickAddMap>({});
@@ -132,6 +118,7 @@ export function GameResultsGrid({
       setQuickState(game.id, boardKey, {
         status: "added",
         boardName: board.name,
+        boardId: board.id,
       });
     } catch (err) {
       setQuickState(game.id, boardKey, {
@@ -141,184 +128,74 @@ export function GameResultsGrid({
     }
   };
 
+  const handleRemove = async (
+    game: Game,
+    boardKey: BoardKey,
+    options: { requireConfirm: boolean; membership: Array<{ id: string; name: string; status?: string }> },
+  ) => {
+    const currentState = quickAdd[game.id]?.[boardKey];
+    if (currentState?.status === "loading") return;
+
+    const membershipEntry = options.membership.find(
+      (entry) => entry.name.toLowerCase() === BOARD_CONFIG[boardKey].name.toLowerCase(),
+    );
+    const boardId =
+      currentState?.status === "added" && currentState.boardId
+        ? currentState.boardId
+        : membershipEntry?.id ?? boardIds[boardKey];
+
+    if (!boardId) {
+      setQuickState(game.id, boardKey, {
+        status: "error",
+        message: "Unknown board to remove from.",
+      });
+      return;
+    }
+
+    if (options.requireConfirm) {
+      const confirmed = window.confirm(`Remove ${game.title} from your ${BOARD_CONFIG[boardKey].name}?`);
+      if (!confirmed) return;
+    }
+
+    setQuickState(game.id, boardKey, { status: "loading" });
+    try {
+      await deleteBoardGameClient({ boardId, gameId: game.id });
+      setQuickState(game.id, boardKey, { status: "idle" });
+    } catch (err) {
+      setQuickState(game.id, boardKey, {
+        status: "error",
+        message: err instanceof Error ? err.message : "Failed to remove from board.",
+      });
+    }
+  };
+
   return (
     <div className="grid gap-4 sm:grid-cols-2">
       {games.map((game) => {
-        const likedState = quickAdd[game.id]?.liked ?? { status: "idle" };
-        const wishlistState = quickAdd[game.id]?.wishlist ?? { status: "idle" };
-        const libraryState = quickAdd[game.id]?.library ?? { status: "idle" };
         const reason = reasons?.[game.id];
-
-        const states = [likedState, wishlistState, libraryState];
-        const added = states.find((s) => s.status === "added") as
-          | Extract<QuickAddState, { status: "added" }>
-          | undefined;
-        const errored = states.find((s) => s.status === "error") as
-          | Extract<QuickAddState, { status: "error" }>
-          | undefined;
-        const actionIsError = Boolean(errored);
-        const actionMessage = added
-          ? `Added to ${added.boardName}`
-          : errored
-            ? errored.message
-            : null;
-        const coverUrl = igdbImage(
-          game.coverUrl ?? game.headerImageUrl ?? game.backgroundImageUrl,
-          "t_thumb",
-        );
+        const membership = memberships?.[game.id] ?? [];
 
         return (
-          <article
+          <GameResultsCard
             key={game.id}
-            className="group relative rounded-xl border border-white/5 bg-gradient-to-br from-slate-800/70 via-slate-900/70 to-indigo-900/40 p-4 shadow-lg transition hover:-translate-y-0.5 hover:border-indigo-400/40 hover:shadow-indigo-500/30"
-          >
-            <SignedIn>
-              <div className="absolute right-3 top-3 flex items-center gap-2">
-                <Button
-                  type="button"
-                  size="icon"
-                  variant="ghost"
-                  className={`${ICON_BUTTON_CLASSES} ${
-                    likedState.status === "added" ? "text-rose-300 hover:text-rose-200" : ""
-                  }`}
-                  onClick={() => handleQuickAdd(game, "liked")}
-                  disabled={likedState.status === "loading" || likedState.status === "added"}
-                  aria-label="Quick like"
-                >
-                  {likedState.status === "loading" ? (
-                    <Loader2 className="size-4 animate-spin" />
-                  ) : (
-                    <Heart
-                      className={`size-4 ${
-                        likedState.status === "added" ? "fill-rose-300 text-rose-300" : ""
-                      }`}
-                    />
-                  )}
-                </Button>
-                <AddToBoardDialog
-                  game={game}
-                  trigger={
-                    <Button
-                      type="button"
-                      size="icon"
-                      variant="ghost"
-                      className={ICON_BUTTON_CLASSES}
-                      aria-label="Add to another board"
-                    >
-                      <Ellipsis className="size-4" />
-                    </Button>
-                  }
-                  onAdded={({ boardName }) => {
-                    const boardKey = resolveBoardKeyFromName(boardName);
-                    if (boardKey) {
-                      setQuickState(game.id, boardKey, { status: "added", boardName });
-                    }
-                  }}
-                />
-              </div>
-            </SignedIn>
-
-            <div className="flex flex-col gap-3">
-              <Link
-                href={`/games/${game.id}`}
-                className="flex gap-3 rounded-lg px-1 py-1 transition hover:bg-white/5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-indigo-400"
-              >
-                <CoverImage url={coverUrl} title={game.title} />
-                <div className="flex flex-1 flex-col gap-2">
-                  <h3 className="text-lg font-semibold leading-tight text-white underline decoration-indigo-400/50 underline-offset-4">
-                    {game.title}
-                  </h3>
-                  <p className="line-clamp-2 text-sm text-indigo-100/80">
-                    {game.description || "No description available."}
-                  </p>
-                  <div className="flex flex-wrap gap-2 text-xs text-indigo-100/70">
-                    {renderMeta(game.platforms, "platform")}
-                    {renderMeta(game.genres, "genre")}
-                    {renderMeta(game.publishers, "publisher")}
-                  </div>
-                  {game.releaseDate ? (
-                    <p className="text-xs text-indigo-100/60">
-                      Released {formatDate(game.releaseDate)}{" "}
-                      {game.metacritic ? `- Metacritic ${game.metacritic}` : ""}
-                    </p>
-                  ) : null}
-                </div>
-              </Link>
-
-              <div className="flex flex-wrap items-center gap-2">
-                <SignedIn>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="secondary"
-                    className={`${PRIMARY_BUTTON_CLASSES} px-4`}
-                    onClick={() => handleQuickAdd(game, "library")}
-                    disabled={libraryState.status === "loading" || libraryState.status === "added"}
-                  >
-                    {libraryState.status === "loading" ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : null}
-                    Add to Library
-                  </Button>
-                  <Button
-                    type="button"
-                    size="sm"
-                    variant="outline"
-                    className={`${SECONDARY_BUTTON_CLASSES} px-4`}
-                    onClick={() => handleQuickAdd(game, "wishlist")}
-                    disabled={
-                      wishlistState.status === "loading" || wishlistState.status === "added"
-                    }
-                  >
-                    {wishlistState.status === "loading" ? (
-                      <Loader2 className="mr-2 size-4 animate-spin" />
-                    ) : null}
-                    Add to Wishlist
-                  </Button>
-                </SignedIn>
-                <SignedOut>
-                  <SignInButton mode="modal">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
-                    >
-                      Sign in to save
-                    </Button>
-                  </SignInButton>
-                </SignedOut>
-
-                <div className="min-w-[140px] text-xs text-indigo-100/80">
-                  {actionMessage ? (
-                    <span
-                      className={`inline-flex items-center gap-1 rounded-full px-2 py-1 ${
-                        actionIsError
-                          ? "bg-rose-500/15 text-rose-100"
-                          : "bg-emerald-500/15 text-emerald-100"
-                      }`}
-                      role={actionIsError ? "alert" : "status"}
-                      aria-live={actionIsError ? "assertive" : "polite"}
-                    >
-                      {actionIsError ? (
-                        <AlertCircle className="size-3.5" />
-                      ) : (
-                        <Check className="size-3.5" />
-                      )}
-                      {actionMessage}
-                    </span>
-                  ) : null}
-                </div>
-              </div>
-
-              {reason ? (
-                <div className="rounded-lg border border-indigo-400/30 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-50/90">
-                  <span className="font-semibold text-indigo-50">Why: </span>
-                  {reason}
-                </div>
-              ) : null}
-            </div>
-          </article>
+            game={game}
+            reason={reason}
+            quickAddState={{
+              liked: deriveState("liked", game.id, membership, quickAdd),
+              wishlist: deriveState("wishlist", game.id, membership, quickAdd),
+              library: deriveState("library", game.id, membership, quickAdd),
+            }}
+            onQuickAdd={(boardKey) => handleQuickAdd(game, boardKey)}
+            onDialogAdded={(boardName) => {
+              const boardKey = resolveBoardKeyFromName(boardName);
+              if (boardKey) {
+                setQuickState(game.id, boardKey, { status: "added", boardName });
+              }
+            }}
+            onRemove={(boardKey) =>
+              handleRemove(game, boardKey, { requireConfirm: boardKey !== "liked", membership })
+            }
+          />
         );
       })}
     </div>
@@ -351,69 +228,27 @@ export function GameResultsLoadingGrid() {
   );
 }
 
-function CoverImage({ url, title }: { url?: string | null; title: string }) {
-  if (!url) {
-    return (
-      <div className="flex size-20 items-center justify-center rounded-lg border border-white/10 bg-white/5 text-xs text-indigo-100/60">
-        No art
-      </div>
-    );
-  }
+function deriveState(
+  boardKey: BoardKey,
+  gameId: string,
+  membership: Array<{ id: string; name: string; status?: string }>,
+  quickAdd: QuickAddMap,
+): QuickAddState {
+  const quick = quickAdd[gameId]?.[boardKey];
+  if (quick) return quick;
 
-  return (
-    <div className="relative size-20 overflow-hidden rounded-lg border border-white/10">
-      {/* eslint-disable-next-line @next/next/no-img-element */}
-      <img
-        src={url}
-        alt={title}
-        className="size-full object-cover transition duration-500 group-hover:scale-[1.02]"
-        loading="lazy"
-        referrerPolicy="no-referrer"
-      />
-    </div>
+  const fromMembership = membership.find(
+    (entry) => entry.name.toLowerCase() === BOARD_CONFIG[boardKey].name.toLowerCase(),
   );
-}
-
-function renderMeta(values: string[] = [], keyPrefix: string) {
-  return values.slice(0, 3).map((value, index) => (
-    <span
-      key={`${keyPrefix}-${index}`}
-      className="rounded-full bg-white/10 px-2 py-1 font-semibold uppercase tracking-wide text-indigo-100/70"
-    >
-      {value}
-    </span>
-  ));
-}
-
-function formatDate(value: unknown) {
-  const date = coerceDate(value);
-  if (!date) return "Unknown";
-  return date.toLocaleDateString(undefined, {
-    year: "numeric",
-    month: "short",
-    day: "numeric",
-  });
-}
-
-function coerceDate(value: unknown): Date | null {
-  if (!value) return null;
-  if (value instanceof Date) {
-    return Number.isNaN(value.getTime()) ? null : value;
+  if (fromMembership) {
+    return {
+      status: "added",
+      boardName: fromMembership.name,
+      boardId: fromMembership.id,
+      fromInitial: true,
+    };
   }
 
-  if (typeof value === "string" || typeof value === "number") {
-    const parsed = new Date(value);
-    return Number.isNaN(parsed.getTime()) ? null : parsed;
-  }
-
-  if (typeof value === "object") {
-    const record = value as Record<string, unknown>;
-    const nested = record.$date ?? record.date;
-    if (typeof nested === "string" || typeof nested === "number") {
-      const parsed = new Date(nested);
-      return Number.isNaN(parsed.getTime()) ? null : parsed;
-    }
-  }
-
-  return null;
+  return { status: "idle" };
 }
+

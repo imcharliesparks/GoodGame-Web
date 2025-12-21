@@ -1,27 +1,41 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Bot, Loader2, MessageCircle, Send, Sparkles, Wand2, X } from "lucide-react";
 
 import { GameResultsGrid, GameResultsLoadingGrid } from "@/components/games/search/GameResultsGrid";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { fetchGameById } from "@/lib/client/games";
 import {
   requestRecommendations,
   type RecommendationResponse,
 } from "@/lib/client/recommendations";
+import { fetchBoards } from "@/lib/client/boards";
 import type { Game } from "@/lib/types/game";
+import type { Board } from "@/lib/types/board";
 
 type ConversationTurn = {
   id: string;
   query: string;
-  items: Array<{ game: Game; reason: string }>;
+  items: Array<{
+    game: Game;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }>;
 };
 
 const SAMPLE_PROMPTS = [
-  "Action game from my library I haven't started yet on PS5 or Switch",
+  "Action game I haven't started yet on PS5 or Switch",
   "Short cozy game I can finish tonight",
   "Backlog pick with great reviews on PC",
   "Multiplayer co-op I can play this weekend",
@@ -30,9 +44,38 @@ const SAMPLE_PROMPTS = [
 export default function RecommendationsPage() {
   const [query, setQuery] = useState("");
   const [turns, setTurns] = useState<ConversationTurn[]>([]);
+  const [boards, setBoards] = useState<Board[]>([]);
+  const [boardsLoading, setBoardsLoading] = useState(false);
+  const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>(undefined);
+  const [boardError, setBoardError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+
+  useEffect(() => {
+    const loadBoards = async () => {
+      setBoardsLoading(true);
+      setBoardError(null);
+      try {
+        const allBoards: Board[] = [];
+        let cursor: string | undefined;
+
+        do {
+          const page = await fetchBoards({ limit: 50, cursor });
+          allBoards.push(...page.items);
+          cursor = "nextCursor" in page ? page.nextCursor : undefined;
+        } while (cursor);
+
+        setBoards(allBoards);
+      } catch (err) {
+        setBoardError(err instanceof Error ? err.message : "Failed to load boards.");
+      } finally {
+        setBoardsLoading(false);
+      }
+    };
+
+    void loadBoards();
+  }, []);
 
   const handleSubmit = async (event?: React.FormEvent) => {
     event?.preventDefault();
@@ -46,7 +89,11 @@ export default function RecommendationsPage() {
     controllerRef.current = controller;
 
     try {
-      const response = await requestRecommendations({ query: term, signal: controller.signal });
+      const response = await requestRecommendations({
+        query: term,
+        boardId: selectedBoardId,
+        signal: controller.signal,
+      });
       const hydrated = await hydrateResults(response, controller.signal);
 
       setTurns((prev) => [
@@ -74,7 +121,7 @@ export default function RecommendationsPage() {
   return (
     <AppShell
       title="Curator"
-      description="Your personal game sommelier. Describe your mood or setup and Curator pours you picks from your own Library board—never invented, always yours."
+      description="Your personal game sommelier. Describe your mood or setup, optionally pick a board to target, and Curator pours you picks from games you've already added -- never invented, always yours."
       actions={
         <Button
           type="button"
@@ -98,24 +145,55 @@ export default function RecommendationsPage() {
             </div>
             <div>
               <p className="text-sm font-semibold uppercase tracking-[0.28em] text-indigo-200">
-                Curator · Game Sommelier
+                Curator / Game Sommelier
               </p>
               <p className="text-indigo-100/80">
-                Describe the vibe or platform and Curator serves picks from your Library board.
+                Describe the vibe or platform, choose a board (or all), and Curator serves picks from your games.
               </p>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/5 p-4">
-            <div className="flex flex-col gap-3 md:flex-row md:items-center">
-              <Input
-                value={query}
-                onChange={(event) => setQuery(event.target.value)}
-                placeholder="e.g. A fast-paced shooter on PS5 that I haven't started"
-                className="flex-1 bg-white/5 text-white placeholder:text-indigo-100/60"
-                disabled={isLoading}
-              />
-              <div className="flex gap-2">
+            <div className="flex flex-col gap-3 md:flex-row md:items-end md:gap-4">
+              <div className="flex flex-1 flex-col gap-2">
+                <Label htmlFor="curator-query" className="text-xs uppercase text-indigo-100/70">
+                  Prompt
+                </Label>
+                <Input
+                  id="curator-query"
+                  value={query}
+                  onChange={(event) => setQuery(event.target.value)}
+                  placeholder="e.g. A fast-paced shooter on PS5 that I haven't started"
+                  className="flex-1 bg-white/5 text-white placeholder:text-indigo-100/60"
+                  disabled={isLoading}
+                />
+              </div>
+
+              <div className="flex w-full flex-col gap-2 md:w-72">
+                <Label className="text-xs uppercase text-indigo-100/70">Board</Label>
+                <Select
+                  value={selectedBoardId ?? "all"}
+                  onValueChange={(value) => setSelectedBoardId(value === "all" ? undefined : value)}
+                  disabled={boardsLoading || isLoading}
+                >
+                  <SelectTrigger className="w-full border-white/15 bg-white/5 text-white">
+                    <SelectValue placeholder="All boards" />
+                  </SelectTrigger>
+                  <SelectContent className="border-white/10 bg-slate-900 text-white">
+                    <SelectItem value="all">All boards</SelectItem>
+                    {boards.map((board) => (
+                      <SelectItem key={board.id} value={board.id}>
+                        {board.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {boardError ? (
+                  <p className="text-xs text-rose-200/80">Failed to load boards: {boardError}</p>
+                ) : null}
+              </div>
+
+              <div className="flex items-end gap-2 md:flex-col md:items-stretch md:justify-end">
                 {isLoading ? (
                   <Button
                     type="button"
@@ -168,7 +246,7 @@ export default function RecommendationsPage() {
           <div className="rounded-2xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-indigo-100/80">
             <p className="flex items-center gap-2 text-indigo-50">
               <MessageCircle className="size-4" />
-              Start a chat to see personalized picks from your library.
+              Start a chat to see personalized picks from your boards.
             </p>
             <p className="mt-2 text-indigo-100/70">
               Suggestions stay within your existing games; we never invent titles.
@@ -180,6 +258,8 @@ export default function RecommendationsPage() {
           const reasonMap: Record<string, string> = Object.fromEntries(
             turn.items.map((item) => [item.game.id, item.reason]),
           );
+          const membershipMap: Record<string, Array<{ id: string; name: string; status?: string }>> =
+            Object.fromEntries(turn.items.map((item) => [item.game.id, item.boards]));
 
           return (
             <div
@@ -203,12 +283,13 @@ export default function RecommendationsPage() {
                 <div className="flex-1 space-y-3">
                   {turn.items.length === 0 ? (
                     <div className="rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm text-indigo-100/80">
-                      No picks yet. Try a broader prompt or make sure your Library board has games.
+                      No picks yet. Try a broader prompt or make sure your boards have games.
                     </div>
                   ) : (
                     <GameResultsGrid
                       games={turn.items.map((item) => item.game)}
                       reasons={reasonMap}
+                      memberships={membershipMap}
                     />
                   )}
                 </div>
@@ -226,17 +307,21 @@ export default function RecommendationsPage() {
 async function hydrateResults(
   response: RecommendationResponse,
   signal?: AbortSignal,
-): Promise<Array<{ game: Game; reason: string }>> {
+): Promise<Array<{ game: Game; reason: string; boards: Array<{ id: string; name: string; status?: string }> }>> {
   if (!response.results.length) return [];
 
   const settled = await Promise.allSettled(
     response.results.map(async (item) => {
       const game = await fetchGameById(item.gameId, { signal });
-      return { game, reason: item.reason };
+      return { game, reason: item.reason, boards: item.boards };
     }),
   );
 
-  const hydrated: Array<{ game: Game; reason: string }> = [];
+  const hydrated: Array<{
+    game: Game;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }> = [];
   for (const result of settled) {
     if (result.status === "fulfilled") {
       hydrated.push(result.value);

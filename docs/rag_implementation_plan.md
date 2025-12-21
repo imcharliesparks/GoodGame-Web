@@ -125,13 +125,10 @@ Use AI SDK structured generation:
 
 Retrieve the user’s library from backend:
 
-* Identify which board(s) represent “library”.
+* Identify which board(s) to use:
 
-  * If your app has a convention (e.g., a specific “Library” board), implement it.
-  * If not, implement a pragmatic default:
-
-    * Fetch boards, pick the first board OR pick the board named “Library” if present.
-    * Document this behavior and keep it easy to change later.
+  * If the caller provides `boardId`, target only that board.
+  * Otherwise, fetch all boards and aggregate their games (up to a sane cap) so recommendations draw from everything the user has created.
 
 Fetch board-games:
 
