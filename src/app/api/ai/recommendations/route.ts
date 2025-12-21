@@ -158,6 +158,7 @@ async function loadLibrary(token: string) {
 async function collectBoards(token: string) {
   const boards: Board[] = [];
   let cursor: string | undefined;
+  let totalGames = 0;
 
   do {
     const page = await listBoards(
@@ -165,8 +166,9 @@ async function collectBoards(token: string) {
       { token, cache: "no-store" },
     );
     boards.push(...page.items);
+    totalGames = boards.reduce((sum, board) => sum + countBoardGames(board), 0);
     cursor = "nextCursor" in page ? page.nextCursor : undefined;
-  } while (cursor && boards.length < MAX_BOARD_GAMES);
+  } while (cursor && totalGames < MAX_BOARD_GAMES);
 
   return boards;
 }
@@ -237,7 +239,7 @@ async function extractIntentGroq(
       "genres: comma-separated values or none",
       "platforms: comma-separated values or none",
       "ownership: owned|wishlist|unknown",
-      "playStatus: not_started|in_progress|completed|unknown",
+      "playstatus: not_started|in_progress|completed|unknown",
       "mood: relaxed|intense|short-session|unknown",
       "maxResults: integer 1-20 or blank",
       `User query: ${query}`,
@@ -320,20 +322,25 @@ function selectCandidates(
     if (
       intent.platforms &&
       intent.platforms.length > 0 &&
-      !hasOverlap(intent.platforms, platforms)
+      !hasOverlap(intent.platforms, platforms, { aliasMap: PLATFORM_ALIASES })
     ) {
       continue;
     }
 
     if (intent.genres && intent.genres.length > 0) {
-      const genreLikeFields = [
-        ...item.game.genres,
-        ...item.game.tags,
-        ...item.game.publishers,
-        ...item.game.developers,
-      ];
-      if (!hasOverlap(intent.genres, genreLikeFields)) {
-        continue;
+      // Prefer strict genre/tag matches to avoid false positives from publisher/developer names.
+      const primaryGenreFields = [...item.game.genres, ...item.game.tags];
+      const hasPrimaryMatch = hasOverlap(intent.genres, primaryGenreFields);
+
+      if (!hasPrimaryMatch) {
+        const shouldUseFallback =
+          intent.includeRelatedFields === true;
+        const fallbackFields = shouldUseFallback
+          ? [...item.game.publishers, ...item.game.developers]
+          : [];
+        if (!hasOverlap(intent.genres, fallbackFields)) {
+          continue;
+        }
       }
     }
 
@@ -530,20 +537,50 @@ function statusPriority(status: BoardGameWithGame["status"]) {
   }
 }
 
-function hasOverlap(a: string[], b: string[]) {
+const PLATFORM_ALIASES: Record<string, string[]> = {
+  ps5: ["ps5", "playstation 5"],
+  ps4: ["ps4", "playstation 4"],
+  "xbox-series": ["xbox series x", "xbox series s", "series x", "series s", "xsx", "xss"],
+  "xbox-one": ["xbox one", "xbone"],
+  switch: ["switch", "nintendo switch"],
+  pc: ["pc", "windows"],
+  mac: ["mac", "macos", "os x", "osx"],
+  linux: ["linux"],
+};
+
+type OverlapOptions = { aliasMap?: Record<string, string[]> };
+
+function hasOverlap(a: string[], b: string[], options: OverlapOptions = {}) {
   const normalize = (value: string) => value.trim().toLowerCase();
   const listA = a.map(normalize);
   const listB = b.map(normalize);
+  const aliasGroups = options.aliasMap ? buildAliasGroups(options.aliasMap) : [];
 
   for (const left of listA) {
     for (const right of listB) {
+      // Exact match
       if (left === right) return true;
-      if (left.includes(right)) return true;
-      if (right.includes(left)) return true;
+
+      // Alias group match
+      if (inSameAliasGroup(left, right, aliasGroups)) return true;
+
+      // Controlled substring match: only for sufficiently long tokens to avoid short collisions
+      const longEnough = left.length >= 3 && right.length >= 3;
+      if (longEnough && (left.includes(right) || right.includes(left))) {
+        return true;
+      }
     }
   }
 
   return false;
+}
+
+function buildAliasGroups(aliasMap: Record<string, string[]>) {
+  return Object.values(aliasMap).map((group) => group.map((value) => value.trim().toLowerCase()));
+}
+
+function inSameAliasGroup(left: string, right: string, groups: string[][]) {
+  return groups.some((group) => group.includes(left) && group.includes(right));
 }
 
 function mergePlatforms(base: string[], overrides?: string[]) {
@@ -551,6 +588,18 @@ function mergePlatforms(base: string[], overrides?: string[]) {
   for (const value of base ?? []) merged.add(value);
   for (const value of overrides ?? []) merged.add(value);
   return Array.from(merged);
+}
+
+function countBoardGames(board: Board) {
+  // Boards API does not expose counts in the type; accept common shapes if present.
+  const maybeRecord = board as unknown as Record<string, unknown>;
+  if ("gameCount" in maybeRecord && typeof maybeRecord.gameCount === "number") {
+    return maybeRecord.gameCount;
+  }
+  if ("games" in maybeRecord && Array.isArray(maybeRecord.games)) {
+    return maybeRecord.games.length;
+  }
+  return 0;
 }
 
 function truncate(value: string, limit: number) {

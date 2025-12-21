@@ -8,6 +8,7 @@ export const GameRecommendationIntentSchema = z
     playStatus: z.enum(["NOT_STARTED", "IN_PROGRESS", "COMPLETED"]).optional(),
     mood: z.enum(["relaxed", "intense", "short-session"]).optional(),
     maxResults: z.number().int().min(1).max(20).optional(),
+    includeRelatedFields: z.boolean().optional(),
   })
   .strict();
 
