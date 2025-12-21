@@ -50,7 +50,13 @@ const PRIMARY_BUTTON_CLASSES =
 const SECONDARY_BUTTON_CLASSES =
   "h-10 rounded-full border border-white/30 text-white/90 bg-white/5 hover:bg-white/10 hover:border-white/50 active:bg-white/15 active:translate-y-[1px] focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300 disabled:opacity-60 disabled:pointer-events-none transition";
 
-export function GameResultsGrid({ games }: { games: Game[] }) {
+export function GameResultsGrid({
+  games,
+  reasons,
+}: {
+  games: Game[];
+  reasons?: Record<string, string>;
+}) {
   const [boardIds, setBoardIds] = useState<Partial<Record<BoardKey, string>>>({});
   const [quickAdd, setQuickAdd] = useState<QuickAddMap>({});
   const ensuringRef = useRef<Partial<Record<BoardKey, Promise<{ id: string; name: string }>>>>(
@@ -141,6 +147,7 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
         const likedState = quickAdd[game.id]?.liked ?? { status: "idle" };
         const wishlistState = quickAdd[game.id]?.wishlist ?? { status: "idle" };
         const libraryState = quickAdd[game.id]?.library ?? { status: "idle" };
+        const reason = reasons?.[game.id];
 
         const states = [likedState, wishlistState, libraryState];
         const added = states.find((s) => s.status === "added") as
@@ -303,6 +310,13 @@ export function GameResultsGrid({ games }: { games: Game[] }) {
                   ) : null}
                 </div>
               </div>
+
+              {reason ? (
+                <div className="rounded-lg border border-indigo-400/30 bg-indigo-500/10 px-3 py-2 text-sm text-indigo-50/90">
+                  <span className="font-semibold text-indigo-50">Why: </span>
+                  {reason}
+                </div>
+              ) : null}
             </div>
           </article>
         );

@@ -19,8 +19,13 @@ export async function fetchGames(input: {
   return apiFetch<PaginatedResult<Game>>(`/api/games?${params.toString()}`);
 }
 
-export async function fetchGameById(id: string) {
-  return apiFetch<Game>(`/api/games/${encodeURIComponent(id)}`);
+export async function fetchGameById(
+  id: string,
+  options: { signal?: AbortSignal } = {},
+) {
+  return apiFetch<Game>(`/api/games/${encodeURIComponent(id)}`, {
+    signal: options.signal,
+  });
 }
 
 export async function fetchGameByIgdbId(igdbId: number) {
