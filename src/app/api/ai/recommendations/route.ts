@@ -165,7 +165,7 @@ async function collectBoards(token: string) {
       { token, cache: "no-store" },
     );
     boards.push(...page.items);
-    cursor = page.nextCursor;
+    cursor = "nextCursor" in page ? page.nextCursor : undefined;
   } while (cursor && boards.length < MAX_BOARD_GAMES);
 
   return boards;
