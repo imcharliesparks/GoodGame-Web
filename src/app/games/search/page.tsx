@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 
 import { useDebounce } from "@/components/hooks/useDebounce";
 import {
@@ -11,6 +12,7 @@ import {
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { fetchBoards, fetchBoardGames } from "@/lib/client/boards";
 import { requestGameSearch } from "@/lib/client/game-search";
 import type { Game } from "@/lib/types/game";
 
@@ -27,9 +29,13 @@ export default function GameSearchPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [hasSearched, setHasSearched] = useState(false);
+  const [memberships, setMemberships] = useState<
+    Record<string, Array<{ id: string; name: string; status?: string }>>
+  >({});
   const inflight = useRef<AbortController | null>(null);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const lastRequestedCursor = useRef<string | undefined>(undefined);
+  const { isSignedIn } = useAuth();
 
   const startSearch = useCallback(
     async (term: string, { reset, cursor }: { reset: boolean; cursor?: string }) => {
@@ -77,6 +83,7 @@ export default function GameSearchPage() {
 
     if (!term) {
       setResults([]);
+      setMemberships({});
       setNextCursor(undefined);
       setHasSearched(false);
       setError(null);
@@ -96,6 +103,64 @@ export default function GameSearchPage() {
     }
     return "Search results are pulled from the GoodGame backend.";
   }, [hasSearched]);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setMemberships({});
+      return;
+    }
+
+    const gameIds = Array.from(new Set(results.map((game) => game.id)));
+    if (gameIds.length === 0) return;
+
+    const gameIdSet = new Set(gameIds);
+    let cancelled = false;
+
+    const loadMemberships = async () => {
+      try {
+        const membershipMap: Record<string, Array<{ id: string; name: string; status?: string }>> = {};
+        let cursor: string | undefined;
+        const boards = [];
+
+        do {
+          const page = await fetchBoards({ limit: 50, cursor });
+          boards.push(...page.items);
+          cursor = page.nextCursor;
+        } while (cursor);
+
+        for (const board of boards) {
+          let bgCursor: string | undefined;
+          do {
+            const page = await fetchBoardGames({ boardId: board.id, limit: 50, cursor: bgCursor });
+            for (const item of page.items) {
+              const gameId = (item as { gameId?: string }).gameId ?? item.game?.id;
+              if (!gameId || !gameIdSet.has(gameId)) continue;
+              const list = membershipMap[gameId] ?? [];
+              if (!list.some((entry) => entry.id === board.id)) {
+                list.push({ id: board.id, name: board.name, status: item.status });
+              }
+              membershipMap[gameId] = list;
+            }
+            bgCursor = page.nextCursor;
+          } while (bgCursor);
+        }
+
+        if (!cancelled) {
+          setMemberships(membershipMap);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.warn("Failed to load board memberships; buttons will default to Add state.", err);
+        }
+      }
+    };
+
+    void loadMemberships();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [results, isSignedIn]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -178,7 +243,7 @@ export default function GameSearchPage() {
           {isLoading && results.length === 0 ? (
             <GameResultsLoadingGrid />
           ) : (
-            <GameResultsGrid games={results} />
+            <GameResultsGrid games={results} memberships={memberships} />
           )}
 
           {isLoadingMore ? <GameResultsLoadingGrid /> : null}

@@ -1,11 +1,13 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { useAuth } from "@clerk/nextjs";
 import { RefreshCcw } from "lucide-react";
 
 import { GameResultsGrid, GameResultsLoadingGrid } from "@/components/games/search/GameResultsGrid";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import { fetchBoards, fetchBoardGames } from "@/lib/client/boards";
 import { fetchGames } from "@/lib/client/games";
 import type { Game } from "@/lib/types/game";
 
@@ -16,8 +18,12 @@ export default function GamesPage() {
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [memberships, setMemberships] = useState<
+    Record<string, Array<{ id: string; name: string; status?: string }>>
+  >({});
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const lastRequestedCursor = useRef<string | undefined>(undefined);
+  const { isSignedIn } = useAuth();
 
   const loadPage = async (cursor?: string) => {
     if (isLoading) return;
@@ -37,6 +43,64 @@ export default function GamesPage() {
   useEffect(() => {
     loadPage();
   }, []);
+
+  useEffect(() => {
+    if (!isSignedIn) {
+      setMemberships({});
+      return;
+    }
+
+    const gameIds = Array.from(new Set(games.map((game) => game.id)));
+    if (gameIds.length === 0) return;
+
+    const gameIdSet = new Set(gameIds);
+    let cancelled = false;
+
+    const loadMemberships = async () => {
+      try {
+        const membershipMap: Record<string, Array<{ id: string; name: string; status?: string }>> = {};
+        let cursor: string | undefined;
+        const boards = [];
+
+        do {
+          const page = await fetchBoards({ limit: 50, cursor });
+          boards.push(...page.items);
+          cursor = page.nextCursor;
+        } while (cursor);
+
+        for (const board of boards) {
+          let bgCursor: string | undefined;
+          do {
+            const page = await fetchBoardGames({ boardId: board.id, limit: 50, cursor: bgCursor });
+            for (const item of page.items) {
+              const gameId = (item as { gameId?: string }).gameId ?? item.game?.id;
+              if (!gameId || !gameIdSet.has(gameId)) continue;
+              const list = membershipMap[gameId] ?? [];
+              if (!list.some((entry) => entry.id === board.id)) {
+                list.push({ id: board.id, name: board.name, status: item.status });
+              }
+              membershipMap[gameId] = list;
+            }
+            bgCursor = page.nextCursor;
+          } while (bgCursor);
+        }
+
+        if (!cancelled) {
+          setMemberships(membershipMap);
+        }
+      } catch (err) {
+        if (!cancelled) {
+          console.warn("Failed to load board memberships; buttons will default to Add state.", err);
+        }
+      }
+    };
+
+    void loadMemberships();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [games, isSignedIn]);
 
   useEffect(() => {
     const sentinel = sentinelRef.current;
@@ -88,7 +152,7 @@ export default function GamesPage() {
         {isLoading && games.length === 0 ? (
           <GameResultsLoadingGrid />
         ) : (
-          <GameResultsGrid games={games} />
+          <GameResultsGrid games={games} memberships={memberships} />
         )}
 
         {nextCursor ? (
