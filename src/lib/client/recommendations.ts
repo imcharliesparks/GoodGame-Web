@@ -7,6 +7,7 @@ export type RecommendationResponse = {
     gameId: string;
     title: string;
     reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
   }>;
   debug?: {
     candidateCount: number;

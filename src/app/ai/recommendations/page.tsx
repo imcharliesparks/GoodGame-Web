@@ -27,7 +27,11 @@ import type { Board } from "@/lib/types/board";
 type ConversationTurn = {
   id: string;
   query: string;
-  items: Array<{ game: Game; reason: string }>;
+  items: Array<{
+    game: Game;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }>;
 };
 
 const SAMPLE_PROMPTS = [
@@ -254,6 +258,8 @@ export default function RecommendationsPage() {
           const reasonMap: Record<string, string> = Object.fromEntries(
             turn.items.map((item) => [item.game.id, item.reason]),
           );
+          const membershipMap: Record<string, Array<{ id: string; name: string; status?: string }>> =
+            Object.fromEntries(turn.items.map((item) => [item.game.id, item.boards]));
 
           return (
             <div
@@ -283,6 +289,7 @@ export default function RecommendationsPage() {
                     <GameResultsGrid
                       games={turn.items.map((item) => item.game)}
                       reasons={reasonMap}
+                      memberships={membershipMap}
                     />
                   )}
                 </div>
@@ -300,17 +307,21 @@ export default function RecommendationsPage() {
 async function hydrateResults(
   response: RecommendationResponse,
   signal?: AbortSignal,
-): Promise<Array<{ game: Game; reason: string }>> {
+): Promise<Array<{ game: Game; reason: string; boards: Array<{ id: string; name: string; status?: string }> }>> {
   if (!response.results.length) return [];
 
   const settled = await Promise.allSettled(
     response.results.map(async (item) => {
       const game = await fetchGameById(item.gameId, { signal });
-      return { game, reason: item.reason };
+      return { game, reason: item.reason, boards: item.boards };
     }),
   );
 
-  const hydrated: Array<{ game: Game; reason: string }> = [];
+  const hydrated: Array<{
+    game: Game;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }> = [];
   for (const result of settled) {
     if (result.status === "fulfilled") {
       hydrated.push(result.value);

@@ -28,7 +28,12 @@ const MAX_CANDIDATES = 20;
 const DEFAULT_RESULTS = 8;
 
 type RecommendationResult = {
-  results: Array<{ gameId: string; title: string; reason: string }>;
+  results: Array<{
+    gameId: string;
+    title: string;
+    reason: string;
+    boards: Array<{ id: string; name: string; status?: string }>;
+  }>;
   debug?: {
     intent: GameRecommendationIntent;
     candidateCount: number;
@@ -100,6 +105,7 @@ export async function POST(request: Request) {
   }
 
   const candidates = selectCandidates(boardCollections, intent);
+  const membershipMap = buildMembershipMap(candidates);
   const cappedCandidates = capCandidates(candidates, parsedBody.boardId);
   const maxResults = Math.min(
     intent.maxResults ?? DEFAULT_RESULTS,
@@ -121,6 +127,7 @@ export async function POST(request: Request) {
     cappedCandidates,
     maxResults,
     parsedBody.boardId,
+    membershipMap,
   );
 
   return NextResponse.json<ApiResult<RecommendationResult>>({
@@ -263,6 +270,15 @@ type Candidate = {
   platforms: string[];
   board: Board;
 };
+
+type MembershipMap = Map<
+  string,
+  Array<{
+    id: string;
+    name: string;
+    status?: string;
+  }>
+>;
 
 async function extractIntentGroq(
   model: ReturnType<typeof getGroqModel>,
@@ -427,6 +443,20 @@ function capCandidates(candidates: Candidate[], primaryBoardId?: string) {
   return deduped;
 }
 
+function buildMembershipMap(candidates: Candidate[]): MembershipMap {
+  const membership: MembershipMap = new Map();
+
+  for (const candidate of candidates) {
+    const list = membership.get(candidate.game.id) ?? [];
+    if (!list.some((entry) => entry.id === candidate.board.id)) {
+      list.push({ id: candidate.board.id, name: candidate.board.name, status: candidate.item.status });
+    }
+    membership.set(candidate.game.id, list);
+  }
+
+  return membership;
+}
+
 type RankingOutput = { results: Array<{ gameId: string; reason: string }> };
 
 async function rankCandidates(
@@ -533,6 +563,7 @@ function validateRankedResults(
   candidates: Candidate[],
   maxResults: number,
   primaryBoardId?: string,
+  membershipMap?: MembershipMap,
 ) {
   if (candidates.length === 0) return [];
 
@@ -556,6 +587,9 @@ function validateRankedResults(
       gameId: candidate.game.id,
       title: candidate.game.title,
       reason,
+      boards: membershipMap?.get(candidate.game.id) ?? [
+        { id: candidate.board.id, name: candidate.board.name, status: candidate.item.status },
+      ],
     });
   }
 
@@ -573,15 +607,22 @@ function validateRankedResults(
     return valid;
   }
 
-  return deterministicFallback(candidates, maxResults);
+  return deterministicFallback(candidates, maxResults, membershipMap);
 }
 
-function deterministicFallback(candidates: Candidate[], maxResults: number) {
+function deterministicFallback(
+  candidates: Candidate[],
+  maxResults: number,
+  membershipMap?: MembershipMap,
+) {
   const fallback = candidates.slice(0, maxResults);
   return fallback.map((candidate) => ({
     gameId: candidate.game.id,
     title: candidate.game.title,
     reason: "Matches your request and is already in your boards.",
+    boards: membershipMap?.get(candidate.game.id) ?? [
+      { id: candidate.board.id, name: candidate.board.name, status: candidate.item.status },
+    ],
   }));
 }
 
