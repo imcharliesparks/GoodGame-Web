@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
 import { SignedOut, SignInButton } from "@clerk/nextjs";
 import { Check, ChevronsUpDown, Loader2, Plus, Shield } from "lucide-react";
 
@@ -82,12 +82,12 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
     [boards, selectedBoardId],
   );
 
-  const pickDefaultBoard = (list: Board[]) => {
+  const pickDefaultBoard = useCallback((list: Board[]) => {
     const libraryBoard = list.find(
       (board) => board.name.trim().toLowerCase() === "library",
     );
     return libraryBoard ?? list[0];
-  };
+  }, []);
 
   const humanizeStatus = (value: GameStatus) =>
     value
@@ -96,37 +96,40 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
       .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
       .join(" ");
 
+  const hasAnyBoard = boards.length > 0;
+  const canSubmit = isSubmitting ? false : Boolean(selectedBoardId);
+
+  const loadBoards = useCallback(
+    async (cursor?: string) => {
+      setLoadingBoards(true);
+      setBoardsError(null);
+      try {
+        const data = await fetchBoards({ limit: 50, cursor });
+        setBoards((prev) => {
+          const mergedBoards = cursor ? [...prev, ...data.items] : data.items;
+          if (!selectedBoardId && mergedBoards.length > 0) {
+            const defaultBoard = pickDefaultBoard(mergedBoards);
+            if (defaultBoard) {
+              setSelectedBoardId(defaultBoard.id);
+            }
+          }
+          return mergedBoards;
+        });
+        setNextCursor(data.nextCursor);
+      } catch (err) {
+        setBoardsError(err instanceof Error ? err.message : "Failed to load boards.");
+      } finally {
+        setLoadingBoards(false);
+      }
+    },
+    [pickDefaultBoard, selectedBoardId],
+  );
+
   useEffect(() => {
     if (open && boards.length === 0 && !loadingBoards) {
       void loadBoards();
     }
-  }, [open, boards.length, loadingBoards]);
-
-  const hasAnyBoard = boards.length > 0;
-  const canSubmit = isSubmitting ? false : Boolean(selectedBoardId);
-
-  const loadBoards = async (cursor?: string) => {
-    setLoadingBoards(true);
-    setBoardsError(null);
-    try {
-      const data = await fetchBoards({ limit: 50, cursor });
-      setBoards((prev) => {
-        const mergedBoards = cursor ? [...prev, ...data.items] : data.items;
-        if (!selectedBoardId && mergedBoards.length > 0) {
-          const defaultBoard = pickDefaultBoard(mergedBoards);
-          if (defaultBoard) {
-            setSelectedBoardId(defaultBoard.id);
-          }
-        }
-        return mergedBoards;
-      });
-      setNextCursor(data.nextCursor);
-    } catch (err) {
-      setBoardsError(err instanceof Error ? err.message : "Failed to load boards.");
-    } finally {
-      setLoadingBoards(false);
-    }
-  };
+  }, [open, boards.length, loadingBoards, loadBoards]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -223,7 +226,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
             </Button>
           )}
         </DialogTrigger>
-        <DialogContent className="w-full max-w-[calc(100vw-1.5rem)] rounded-xl border-white/15 bg-slate-950/90 text-white shadow-2xl shadow-indigo-900/30 backdrop-blur sm:max-w-xl">
+        <DialogContent className="w-full max-w-[calc(100vw-1.5rem)] lg:max-w-1/2 rounded-xl border-white/15 bg-slate-950/90 text-white shadow-2xl shadow-indigo-900/30 backdrop-blur sm:max-w-xl">
           <DialogHeader className="space-y-1">
             <DialogTitle className="text-xl text-white">Save "{game.title}"</DialogTitle>
             <DialogDescription className="text-indigo-100/80">

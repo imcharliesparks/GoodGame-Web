@@ -22,6 +22,8 @@ const SAVED_BOARD_CONFIG = {
   status: "OWNED" as GameStatus,
 };
 
+const VALID_STATUSES: GameStatus[] = ["OWNED", "PLAYING", "COMPLETED", "WISHLIST"];
+
 export function GameResultsGrid({
   games,
   reasons,
@@ -138,7 +140,13 @@ export function GameResultsGrid({
           .map((m) => ({
             boardId: m.id,
             boardName: m.name,
-            status: (m.status?.toUpperCase() as GameStatus) || "OWNED",
+            status: (() => {
+              if (!m.status) return "OWNED";
+              const normalized = m.status.toUpperCase();
+              return VALID_STATUSES.includes(normalized as GameStatus)
+                ? (normalized as GameStatus)
+                : "OWNED";
+            })(),
           }));
 
         // Determine save state from membership or tracked state
@@ -172,19 +180,36 @@ export function GameResultsLoadingGrid() {
       {Array.from({ length: 4 }).map((_, index) => (
         <div
           key={index}
-          className="rounded-xl border border-white/5 bg-gradient-to-br from-slate-800/70 via-slate-900/70 to-indigo-900/40 p-4"
+          className="relative overflow-hidden rounded-xl border border-white/10 bg-gradient-to-br from-slate-900/90 via-slate-800/90 to-slate-900/90 p-5 shadow-lg"
         >
-          <div className="flex gap-3">
-            <Skeleton className="h-20 w-20 rounded-lg" />
-            <div className="flex flex-1 flex-col gap-2">
-              <Skeleton className="h-4 w-3/5" />
-              <Skeleton className="h-3 w-full" />
-              <Skeleton className="h-3 w-4/5" />
-              <div className="flex gap-2">
-                <Skeleton className="h-5 w-16 rounded-full" />
-                <Skeleton className="h-5 w-14 rounded-full" />
+          <div className="absolute right-3 top-3">
+            <Skeleton className="h-9 w-9 rounded-full border border-white/10 bg-white/10" />
+          </div>
+
+          <div className="flex gap-4">
+            <Skeleton className="h-24 w-20 shrink-0 rounded-lg border border-white/10 bg-white/5" />
+            <div className="flex flex-1 flex-col gap-3">
+              <div className="space-y-2">
+                <Skeleton className="h-5 w-3/5 rounded-md" />
+                <Skeleton className="h-3 w-full rounded-md" />
+                <Skeleton className="h-3 w-4/5 rounded-md" />
+              </div>
+
+              <div className="flex flex-wrap gap-1.5">
+                <Skeleton className="h-5 w-16 rounded-md" />
+                <Skeleton className="h-5 w-14 rounded-md" />
+                <Skeleton className="h-5 w-12 rounded-md" />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <Skeleton className="h-3 w-24 rounded-md" />
+                <Skeleton className="h-5 w-10 rounded-md" />
               </div>
             </div>
+          </div>
+
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            <Skeleton className="h-7 w-24 rounded-full" />
           </div>
         </div>
       ))}
