@@ -1,10 +1,18 @@
 "use client";
 
 import { useEffect, useMemo, useState, type ReactNode } from "react";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
-import { Check, Loader2, Plus, Shield, Sparkles } from "lucide-react";
+import { SignedOut, SignInButton } from "@clerk/nextjs";
+import { Check, ChevronsUpDown, Loader2, Plus, Shield, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import {
   Dialog,
   DialogContent,
@@ -23,10 +31,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
 import type { Board } from "@/lib/types/board";
 import type { BoardGame, GameStatus } from "@/lib/types/board-game";
 import type { Game } from "@/lib/types/game";
+import { cn } from "@/lib/utils";
 
 const STATUSES: GameStatus[] = ["WISHLIST", "PLAYING", "OWNED", "COMPLETED"];
 
@@ -43,22 +54,43 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
   const [loadingBoards, setLoadingBoards] = useState(false);
   const [boardsError, setBoardsError] = useState<string | null>(null);
 
+  const [boardPopoverOpen, setBoardPopoverOpen] = useState(false);
   const [selectedBoardId, setSelectedBoardId] = useState<string | undefined>();
   const [newBoardName, setNewBoardName] = useState("");
   const [newBoardPublic, setNewBoardPublic] = useState(true);
-  const [status, setStatus] = useState<GameStatus>("WISHLIST");
+  const [status, setStatus] = useState<GameStatus | undefined>(undefined);
   const [platform, setPlatform] = useState<string | undefined>(undefined);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const clearOptionValue = "__none";
+  const platformClearOption = "__platform_none__";
+  const statusClearValue = "__no_status__";
 
   const platformOptions = useMemo(
     () => Array.from(new Set(game.platforms ?? [])).filter(Boolean),
     [game.platforms],
   );
+
+  const selectedBoard = useMemo(
+    () => boards.find((board) => board.id === selectedBoardId),
+    [boards, selectedBoardId],
+  );
+
+  const pickDefaultBoard = (list: Board[]) => {
+    const libraryBoard = list.find(
+      (board) => board.name.trim().toLowerCase() === "library",
+    );
+    return libraryBoard ?? list[0];
+  };
+
+  const humanizeStatus = (value: GameStatus) =>
+    value
+      .toLowerCase()
+      .split("_")
+      .map((part) => part.charAt(0).toUpperCase() + part.slice(1))
+      .join(" ");
 
   useEffect(() => {
     if (open && boards.length === 0 && !loadingBoards) {
@@ -76,12 +108,17 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
     setBoardsError(null);
     try {
       const data = await fetchBoards({ limit: 50, cursor });
-      setBoards((prev) => (cursor ? [...prev, ...data.items] : data.items));
+      setBoards((prev) => {
+        const mergedBoards = cursor ? [...prev, ...data.items] : data.items;
+        if (!selectedBoardId && mergedBoards.length > 0) {
+          const defaultBoard = pickDefaultBoard(mergedBoards);
+          if (defaultBoard) {
+            setSelectedBoardId(defaultBoard.id);
+          }
+        }
+        return mergedBoards;
+      });
       setNextCursor(data.nextCursor);
-
-      if (!cursor && data.items[0] && !selectedBoardId) {
-        setSelectedBoardId(data.items[0].id);
-      }
     } catch (err) {
       setBoardsError(err instanceof Error ? err.message : "Failed to load boards.");
     } finally {
@@ -121,7 +158,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
       const added = await addBoardGameClient({
         boardId: targetBoardId,
         gameId: game.id,
-        status,
+        status: status ?? undefined,
         platforms: trimmedPlatform ? [trimmedPlatform] : undefined,
       });
 
@@ -184,28 +221,63 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               </div>
             ) : null}
             {hasAnyBoard ? (
-              <Select
-                value={selectedBoardId}
-                onValueChange={(value) => setSelectedBoardId(value)}
-              >
-                <SelectTrigger className="w-full border-white/15 bg-white/5 text-white">
-                  <SelectValue placeholder="Choose a board" />
-                </SelectTrigger>
-                <SelectContent className="border-white/15 bg-slate-900 text-white">
-                  {boards.map((board) => (
-                    <SelectItem key={board.id} value={board.id}>
-                      <span className="flex flex-col gap-0.5">
-                        <span className="font-semibold">{board.name}</span>
-                        {board.description ? (
-                          <span className="text-xs text-indigo-100/70 line-clamp-1">
-                            {board.description}
-                          </span>
-                        ) : null}
+              <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    role="combobox"
+                    aria-expanded={boardPopoverOpen}
+                    className="flex w-full items-center justify-between border-white/15 bg-white/5 text-white hover:bg-white/10"
+                  >
+                    <span className="flex min-w-0 flex-col text-left">
+                      <span className="truncate font-semibold">
+                        {selectedBoard?.name ?? "Choose a board"}
                       </span>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+                      <span className="truncate text-xs text-indigo-100/70">
+                        {selectedBoard?.description ?? "Search or pick an existing board"}
+                      </span>
+                    </span>
+                    <ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-indigo-100/70" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-[520px] p-0" align="start">
+                  <Command loop>
+                    <CommandInput placeholder="Search boards..." />
+                    <CommandList>
+                      <CommandEmpty>No boards found.</CommandEmpty>
+                      <CommandGroup>
+                        {boards.map((board) => (
+                          <CommandItem
+                            key={board.id}
+                            value={`${board.name} ${board.description ?? ""}`}
+                            onSelect={() => {
+                              setSelectedBoardId(board.id);
+                              setBoardPopoverOpen(false);
+                            }}
+                            className="flex items-start gap-2"
+                          >
+                            <Check
+                              className={cn(
+                                "mt-0.5 h-4 w-4",
+                                selectedBoardId === board.id ? "opacity-100" : "opacity-0",
+                              )}
+                            />
+                            <span className="flex flex-col gap-0.5">
+                              <span className="font-semibold text-white">{board.name}</span>
+                              {board.description ? (
+                                <span className="text-xs text-indigo-100/70 line-clamp-1">
+                                  {board.description}
+                                </span>
+                              ) : null}
+                            </span>
+                          </CommandItem>
+                        ))}
+                      </CommandGroup>
+                    </CommandList>
+                  </Command>
+                </PopoverContent>
+              </Popover>
             ) : (
               <p className="text-sm text-indigo-100/70">No boards yet. Create one below.</p>
             )}
@@ -261,20 +333,31 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
             </div>
           </div>
 
+          <Separator className="bg-white/10" />
+
           <div className="space-y-2">
-            <Label htmlFor="board-status">Status</Label>
-            <Select value={status} onValueChange={(value) => setStatus(value as GameStatus)}>
+            <Label htmlFor="board-status">Status (optional)</Label>
+            <Select
+              value={status ?? undefined}
+              onValueChange={(value) =>
+                setStatus(value === statusClearValue ? undefined : (value as GameStatus))
+              }
+            >
               <SelectTrigger className="w-full border-white/15 bg-white/5 text-white">
-                <SelectValue />
+                <SelectValue placeholder="Select a status (optional)" />
               </SelectTrigger>
               <SelectContent className="border-white/15 bg-slate-900 text-white">
+                <SelectItem value={statusClearValue}>No status</SelectItem>
                 {STATUSES.map((value) => (
                   <SelectItem key={value} value={value}>
-                    {value}
+                    {humanizeStatus(value)}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
+            <p className="text-xs text-indigo-100/70">
+              Add a status if you want to track progress; otherwise leave it blank.
+            </p>
           </div>
 
           <div className="space-y-2">
@@ -283,7 +366,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               <Select
                 value={platform ?? undefined}
                 onValueChange={(value) =>
-                  setPlatform(value === clearOptionValue ? undefined : value)
+                  setPlatform(value === platformClearOption ? undefined : value)
                 }
               >
                 <SelectTrigger
@@ -293,7 +376,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                   <SelectValue placeholder="Select a platform" />
                 </SelectTrigger>
                 <SelectContent className="border-white/15 bg-slate-900 text-white">
-                  <SelectItem value={clearOptionValue}>No platform</SelectItem>
+                  <SelectItem value={platformClearOption}>No platform</SelectItem>
                   {platformOptions.map((value) => (
                     <SelectItem key={value} value={value}>
                       {value}
@@ -316,6 +399,8 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               Optionally track which platform you plan to play on.
             </p>
           </div>
+
+          <Separator className="bg-white/10" />
 
           {submitError ? (
             <div className="rounded-lg border border-red-500/40 bg-red-500/10 px-3 py-2 text-sm text-red-100">
