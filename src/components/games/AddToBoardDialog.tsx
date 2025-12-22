@@ -207,6 +207,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
         onOpenChange={(next) => {
           setOpen(next);
           if (!next) {
+            setBoardPopoverOpen(false);
             resetDialog();
             setCreateDialogOpen(false);
             resetCreateDialog();
@@ -243,7 +244,12 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               </div>
             ) : null}
             {hasAnyBoard ? (
-              <Popover open={boardPopoverOpen} onOpenChange={setBoardPopoverOpen}>
+              <Popover
+                open={boardPopoverOpen}
+                onOpenChange={(next) => {
+                  setBoardPopoverOpen(next);
+                }}
+              >
                 <PopoverTrigger asChild>
                   <Button
                     type="button"
@@ -277,7 +283,8 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                           {boards.map((board) => (
                             <CommandItem
                               key={board.id}
-                              value={`${board.name} ${board.description ?? ""}`}
+                              value={board.id}
+                              keywords={[board.name, board.description ?? ""]}
                               onSelect={() => {
                                 setSelectedBoardId(board.id);
                                 setBoardPopoverOpen(false);
