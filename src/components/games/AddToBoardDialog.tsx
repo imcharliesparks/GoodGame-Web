@@ -34,7 +34,12 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { addBoardGameClient, createBoardClient, fetchBoards } from "@/lib/client/boards";
+import {
+  addBoardGameClient,
+  createBoardClient,
+  fetchBoardGames,
+  fetchBoards,
+} from "@/lib/client/boards";
 import type { Board } from "@/lib/types/board";
 import type { BoardGame, GameStatus } from "@/lib/types/board-game";
 import type { Game } from "@/lib/types/game";
@@ -68,6 +73,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const [boardMemberships, setBoardMemberships] = useState<Record<string, boolean>>({});
 
   const platformClearOption = "__platform_none__";
   const statusClearValue = "__no_status__";
@@ -81,6 +87,16 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
     () => boards.find((board) => board.id === selectedBoardId),
     [boards, selectedBoardId],
   );
+
+  const orderedBoards = useMemo(() => {
+    const isSpecial = (board: Board) => {
+      const name = board.name.trim().toLowerCase();
+      return name === "wishlist" || name === "saved";
+    };
+    const regular = boards.filter((board) => !isSpecial(board));
+    const special = boards.filter(isSpecial);
+    return [...regular, ...special];
+  }, [boards]);
 
   const pickDefaultBoard = useCallback((list: Board[]) => {
     const libraryBoard = list.find(
@@ -130,6 +146,45 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
       void loadBoards();
     }
   }, [open, boards.length, loadingBoards, loadBoards]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setOpen(false), 2000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
+
+  const loadBoardMembership = useCallback(
+    async (boardId: string) => {
+      // Avoid refetching if we already know the membership.
+      if (boardMemberships[boardId] !== undefined) return;
+
+      let cursor: string | undefined;
+      let found = false;
+      do {
+        const data = await fetchBoardGames({ boardId, limit: 100, cursor });
+        if (data.items.some((item) => item.gameId === game.id)) {
+          found = true;
+          break;
+        }
+        cursor = data.nextCursor;
+      } while (cursor);
+
+      setBoardMemberships((prev) => ({ ...prev, [boardId]: found }));
+    },
+    [boardMemberships, game.id],
+  );
+
+  useEffect(() => {
+    if (!open || boards.length === 0) return;
+    const missing = boards
+      .map((board) => board.id)
+      .filter((id) => boardMemberships[id] === undefined);
+    if (missing.length === 0) return;
+
+    missing.forEach((boardId) => {
+      void loadBoardMembership(boardId);
+    });
+  }, [open, boards, boardMemberships, loadBoardMembership]);
 
   const handleSubmit = async () => {
     setIsSubmitting(true);
@@ -256,7 +311,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                     variant="outline"
                     role="combobox"
                     aria-expanded={boardPopoverOpen}
-                    className="flex w-full items-center justify-between border-white/15 bg-white/5 text-white hover:bg-white/10 py-6"
+                    className="flex w-full items-center justify-between border-white/15 bg-white/5 text-white hover:text-white hover:bg-white/10 py-6"
                   >
                     <span className="flex min-w-0 flex-col text-left">
                       <span className="truncate font-semibold">
@@ -277,10 +332,10 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                   <Command loop className="flex flex-col">
                     <CommandInput placeholder="Search boards..." />
                     <div className="max-h-64 overflow-y-auto">
-                      <CommandList>
-                        <CommandEmpty>No boards found.</CommandEmpty>
-                        <CommandGroup>
-                          {boards.map((board) => (
+                          <CommandList>
+                            <CommandEmpty>No boards found.</CommandEmpty>
+                            <CommandGroup>
+                          {orderedBoards.map((board) => (
                             <CommandItem
                               key={board.id}
                               value={board.id}
@@ -298,7 +353,14 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                                 )}
                               />
                               <span className="flex flex-col gap-0.5">
-                                <span className="font-semibold text-white">{board.name}</span>
+                                <span className="flex items-center gap-2 font-semibold text-white">
+                                  <span>{board.name}</span>
+                                  {boardMemberships[board.id] ? (
+                                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
+                                      Already added
+                                    </span>
+                                  ) : null}
+                                </span>
                                 {board.description ? (
                                   <span className="text-xs text-indigo-100/70 line-clamp-1">
                                     {board.description}
@@ -454,7 +516,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               type="button"
               onClick={handleSubmit}
               disabled={!canSubmit}
-              className="w-full"
+              className="w-full cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
               Add game
@@ -496,7 +558,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                 className="bg-white/5 text-white placeholder:text-indigo-100/60"
               />
             </div>
-            <label className="inline-flex items-center gap-2 text-sm text-indigo-100">
+            <label className="inline-flex items-center gap-2 text-sm text-indigo-100 cursor-pointer">
               <input
                 type="checkbox"
                 checked={!newBoardPublic}
@@ -518,7 +580,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
             <Button
               type="button"
               variant="outline"
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto cursor-pointer text-black"
               onClick={() => {
                 setCreateDialogOpen(false);
                 resetCreateDialog();
@@ -528,7 +590,7 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
             </Button>
             <Button
               type="button"
-              className="w-full sm:w-auto"
+              className="w-full sm:w-auto cursor-pointer"
               disabled={!newBoardName.trim() || isCreatingBoard}
               onClick={handleCreateBoard}
             >

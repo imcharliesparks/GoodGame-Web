@@ -14,3 +14,6 @@
 
 ### Bugs
 - [ ] Fix crazy hits on the backend to games randomly
+
+### UI
+- [ ] Add game flow: make like pinterest and only show combobox with options first, after its added use an animation to show the other properties
