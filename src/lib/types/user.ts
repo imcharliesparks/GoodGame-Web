@@ -5,4 +5,8 @@ export type User = {
   name?: string;
   avatarUrl?: string;
   createdAt: string | Date;
+  publicMetadata?: {
+    location?: string;
+    [key: string]: unknown;
+  };
 };

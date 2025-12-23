@@ -12,6 +12,15 @@ export async function fetchBoards(input: { limit: number; cursor?: string }) {
   return apiFetch<PaginatedResult<Board>>(`/api/boards?${params.toString()}`);
 }
 
+export async function fetchUserPublicBoards(input: { userId: string; limit: number; cursor?: string }) {
+  const params = new URLSearchParams({ limit: String(input.limit), visibility: "public" });
+  if (input.cursor) params.set("cursor", input.cursor);
+
+  return apiFetch<PaginatedResult<Board>>(
+    `/api/users/${encodeURIComponent(input.userId)}/boards?${params.toString()}`,
+  );
+}
+
 export async function fetchBoard(id: string) {
   return apiFetch<Board>(`/api/boards/${encodeURIComponent(id)}`);
 }
