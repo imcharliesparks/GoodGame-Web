@@ -142,7 +142,7 @@ export default function BoardsPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label htmlFor="board-order">Visibility</Label>
+                    <Label>Visibility</Label>
                     <Button
                       type="button"
                       variant={createForm.isPublic ? "secondary" : "outline"}
