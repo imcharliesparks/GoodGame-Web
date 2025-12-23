@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 
 type CarouselContextValue = {
-  contentRef: React.RefObject<HTMLDivElement>;
+  contentRef: React.RefObject<HTMLDivElement | null>;
   scrollPrev: () => void;
   scrollNext: () => void;
   canScrollPrev: boolean;
@@ -26,7 +26,7 @@ const Carousel = React.forwardRef<
     onIndexChange?: (index: number) => void;
   }
 >(({ className, children, initialIndex, activeIndex, onIndexChange, ...props }, ref) => {
-  const contentRef = React.useRef<HTMLDivElement>(null);
+  const contentRef = React.useRef<HTMLDivElement | null>(null);
   const [slides, setSlides] = React.useState<HTMLElement[]>([]);
   const [currentIndex, setCurrentIndex] = React.useState(0);
   const [canScrollPrev, setCanScrollPrev] = React.useState(false);

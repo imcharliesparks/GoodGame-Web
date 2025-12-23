@@ -270,7 +270,7 @@ function ScreenshotStrip({ screenshots, title }: { screenshots: string[]; title:
           </span>
         ) : null}
       </div>
-      <Carousel className="w-full" opts={{ align: "start" }}>
+      <Carousel className="w-full">
         <CarouselContent className="-ml-2">
           {normalizedScreenshots.map((url, index) => (
             <CarouselItem key={`${url}-${index}`} className="pl-2 md:basis-1/2 lg:basis-1/3">
@@ -310,7 +310,6 @@ function ScreenshotStrip({ screenshots, title }: { screenshots: string[]; title:
               className="w-full"
               activeIndex={activeIndex}
               onIndexChange={setActiveIndex}
-              opts={{ align: "start" }}
             >
               <CarouselContent>
                 {normalizedScreenshots.map((url, index) => (
