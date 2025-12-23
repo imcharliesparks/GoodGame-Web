@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 
-import { requireAuthToken } from "../../_lib/auth";
-import { respondWithError } from "../../_lib/errors";
+import { requireAuthToken } from "../../../_lib/auth";
+import { respondWithError } from "../../../_lib/errors";
 import { listBoardsByUser } from "@/lib/data/boards";
 import type { ApiResult, PaginatedResult } from "@/lib/types/api";
 import type { Board } from "@/lib/types/board";
