@@ -76,7 +76,7 @@ export function GameResultsCard({
                   type="button"
                   size="icon"
                   variant="ghost"
-                  className={`h-9 w-9 rounded-full border bg-slate-900/80 backdrop-blur-sm transition-all ${
+                  className={`h-9 w-9 cursor-pointer rounded-full border bg-slate-900/80 backdrop-blur-sm transition-all ${
                     isSaved
                       ? "border-amber-400/50 text-amber-400 hover:border-amber-300 hover:bg-amber-500/10 hover:text-amber-300"
                       : "border-white/20 text-white/60 hover:border-white/40 hover:bg-white/10 hover:text-white"
@@ -200,7 +200,7 @@ export function GameResultsCard({
                 <Button
                   type="button"
                   size="sm"
-                  className="h-9 rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-4 font-medium text-white shadow-lg shadow-indigo-900/30 transition-all hover:brightness-110 hover:shadow-indigo-500/40 active:translate-y-px active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
+                  className="h-9 cursor-pointer rounded-full bg-gradient-to-r from-indigo-500 to-purple-500 px-4 font-medium text-white shadow-lg shadow-indigo-900/30 transition-all hover:brightness-110 hover:shadow-indigo-500/40 active:translate-y-px active:brightness-95 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-300"
                 >
                   <Plus className="mr-1.5 h-4 w-4" />
                   Add to Board

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { SignedIn, SignedOut, SignInButton, UserButton } from "@clerk/nextjs";
-import { Gamepad2, HeartPulse, Home, ListChecks, Search, Sparkles, User2, Users } from "lucide-react";
+import { Gamepad2, Home, ListChecks, Search, Sparkles, User2, Users } from "lucide-react";
 
 import { MobileNav, type NavLink } from "@/components/layout/MobileNav";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils";
 
 const links: NavLink[] = [
   { href: "/", label: "Home", icon: Home },
-  { href: "/health", label: "Health", icon: HeartPulse },
   { href: "/games", label: "Games", icon: Gamepad2 },
   { href: "/games/search", label: "Search", icon: Search },
   { href: "/ai/recommendations", label: "Curator", icon: Sparkles },
@@ -42,15 +41,14 @@ export function AppShell({ title, description, actions, children }: AppShellProp
   return (
     <div className="min-h-screen bg-gradient-to-b from-slate-950 via-slate-900 to-black text-white">
       <header className="sticky top-0 z-30 border-b border-white/10 bg-black/60 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-4 py-4">
+        <div className="mx-auto flex max-w-6xl items-center gap-4 px-4 py-4">
           <Link href="/" className="flex items-center gap-2 font-semibold text-indigo-100 hover:text-white">
             <div className="flex size-9 items-center justify-center rounded-lg bg-indigo-600/80 text-white shadow-lg shadow-indigo-900/30">
               <Gamepad2 className="size-5" />
             </div>
             <span>GoodGame</span>
           </Link>
-          <div className="flex items-center gap-2">
-            <MobileNav links={links} activeHref={activeHref} />
+          <div className="flex flex-1 items-center justify-center">
             <nav className="hidden items-center gap-1 rounded-full bg-white/5 p-1 text-sm backdrop-blur md:flex">
               {links.map((link) => (
                 <Link
@@ -68,6 +66,9 @@ export function AppShell({ title, description, actions, children }: AppShellProp
                 </Link>
               ))}
             </nav>
+          </div>
+          <div className="flex items-center gap-2">
+            <MobileNav links={links} activeHref={activeHref} />
             <div className="flex items-center gap-2">
               <SignedIn>
                 <UserButton />
