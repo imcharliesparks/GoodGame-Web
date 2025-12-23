@@ -68,28 +68,77 @@ export default function PublicProfilePage() {
       if (boardsFetchToken.current !== token) return;
       setBoards(collected);
 
+      const createLimiter = (maxConcurrent: number) => {
+        const queue: Array<() => void> = [];
+        let active = 0;
+
+        const runNext = () => {
+          if (active >= maxConcurrent) return;
+          const nextTask = queue.shift();
+          if (!nextTask) return;
+          active++;
+          nextTask();
+        };
+
+        return function <T>(fn: () => Promise<T>): Promise<T> {
+          return new Promise<T>((resolve, reject) => {
+            const run = () => {
+              fn()
+                .then(resolve)
+                .catch(reject)
+                .finally(() => {
+                  active--;
+                  runNext();
+                });
+            };
+
+            if (active < maxConcurrent) {
+              active++;
+              run();
+            } else {
+              queue.push(run);
+            }
+          });
+        };
+      };
+
+      const limiter = createLimiter(5);
+      const boardCountResults = await Promise.all(
+        collected.map((board) =>
+          limiter(async () => {
+            let boardCursor: string | undefined;
+            let boardCount = 0;
+            do {
+              if (boardsFetchToken.current !== token) return null;
+              const page = await fetchBoardGames({ boardId: board.id, limit: 50, cursor: boardCursor });
+              if (boardsFetchToken.current !== token) return null;
+              boardCount += page.items.length;
+              boardCursor = page.nextCursor ?? undefined;
+            } while (boardCursor);
+
+            const normalizedName = board.name.trim().toLowerCase();
+            return {
+              boardId: board.id,
+              count: boardCount,
+              isLibrary: normalizedName === "library",
+            };
+          }),
+        ),
+      );
+
+      if (boardsFetchToken.current !== token) return;
+
       const counts: Record<string, number> = {};
       let libraryCountLocal: number | null = null;
 
-      for (const board of collected) {
-        let boardCursor: string | undefined;
-        let boardCount = 0;
-        do {
-          const page = await fetchBoardGames({ boardId: board.id, limit: 50, cursor: boardCursor });
-          boardCount += page.items.length;
-          boardCursor = page.nextCursor ?? undefined;
-        } while (boardCursor);
-
-        if (boardsFetchToken.current !== token) return;
-        counts[board.id] = boardCount;
-
-        const normalizedName = board.name.trim().toLowerCase();
-        if (normalizedName === "library") {
-          libraryCountLocal = boardCount;
+      for (const result of boardCountResults) {
+        if (!result) continue;
+        counts[result.boardId] = result.count;
+        if (result.isLibrary) {
+          libraryCountLocal = result.count;
         }
       }
 
-      if (boardsFetchToken.current !== token) return;
       setBoardGameCounts(counts);
       setLibraryCount(libraryCountLocal);
     } catch (err) {
