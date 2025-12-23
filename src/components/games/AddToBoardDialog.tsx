@@ -325,9 +325,12 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] p-0 sm:w-auto sm:max-w-[520px]"
+                  className="p-0"
                   align="start"
-                  style={{ minWidth: "var(--radix-popper-anchor-width)" }}
+                  style={{
+                    width: "min(var(--radix-popper-anchor-width), calc(100vw - 1.5rem))",
+                  }}
+                  disableAutoFocus
                 >
                   <Command loop className="flex flex-col">
                     <CommandInput placeholder="Search boards..." />

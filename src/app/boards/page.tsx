@@ -9,6 +9,7 @@ import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
 import { fetchBoards, createBoardClient, updateBoardClient, deleteBoardClient, fetchBoardGames } from "@/lib/client/boards";
 import { igdbImage } from "@/lib/igdbImage";
@@ -23,7 +24,8 @@ export default function BoardsPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [creating, setCreating] = useState(false);
-  const [createForm, setCreateForm] = useState({ name: "", description: "", isPublic: false });
+  const [createForm, setCreateForm] = useState({ name: "", description: "", isPublic: true });
+  const [createOpen, setCreateOpen] = useState(false);
   const [savingBoardId, setSavingBoardId] = useState<string | null>(null);
 
   const loadBoards = async (cursor?: string) => {
@@ -54,7 +56,8 @@ export default function BoardsPage() {
         isPublic: createForm.isPublic,
       });
       setBoards((prev) => [board, ...prev]);
-      setCreateForm({ name: "", description: "", isPublic: false });
+      setCreateForm({ name: "", description: "", isPublic: true });
+      setCreateOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create board.");
     } finally {
@@ -99,16 +102,95 @@ export default function BoardsPage() {
       title="Boards"
       description="Manage boards through /api/boards and related routes. Create, edit visibility/order, delete, and drill into board games."
       actions={
-        <Button
-          type="button"
-          variant="outline"
-          className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
-          onClick={() => loadBoards()}
-          disabled={isLoading}
-        >
-          <RefreshCcw className="mr-2 size-4" />
-          Refresh
-        </Button>
+        <div className="flex items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="border-white/30 text-slate-900 hover:border-white hover:bg-white/10 dark:text-white"
+            onClick={() => loadBoards()}
+            disabled={isLoading}
+          >
+            <RefreshCcw className="mr-2 size-4" />
+            Refresh
+          </Button>
+          <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+            <DialogTrigger asChild>
+              <Button
+                type="button"
+                className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:brightness-110 cursor-pointer"
+              >
+                <Plus className="mr-2 size-4" />
+                Create board
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="bg-slate-950/95 text-white backdrop-blur border-white/10 px-6 sm:px-8">
+              <DialogHeader>
+                <DialogTitle className="text-xl font-semibold text-white">Create board</DialogTitle>
+              </DialogHeader>
+              <div className="mt-4 space-y-3">
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="space-y-1">
+                    <Label htmlFor="board-name">Name</Label>
+                    <Input
+                      id="board-name"
+                      value={createForm.name}
+                      onChange={(event) =>
+                        setCreateForm((prev) => ({ ...prev, name: event.target.value }))
+                      }
+                      placeholder="Backlog"
+                      className="bg-white/5 text-white placeholder:text-indigo-200/70"
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label htmlFor="board-order">Visibility</Label>
+                    <Button
+                      type="button"
+                      variant={createForm.isPublic ? "secondary" : "outline"}
+                      className="w-full border-white/20 text-black cursor-pointer"
+                      onClick={() =>
+                        setCreateForm((prev) => ({ ...prev, isPublic: !prev.isPublic }))
+                      }
+                    >
+                      {createForm.isPublic ? (
+                        <Eye className="mr-2 size-4" />
+                      ) : (
+                        <EyeOff className="mr-2 size-4" />
+                      )}
+                      {createForm.isPublic ? "Public" : "Private"}
+                    </Button>
+                  </div>
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="board-description">Description</Label>
+                  <Input
+                    id="board-description"
+                    value={createForm.description}
+                    onChange={(event) =>
+                      setCreateForm((prev) => ({ ...prev, description: event.target.value }))
+                    }
+                    placeholder="Notes about this board"
+                    className="bg-white/5 text-white placeholder:text-indigo-200/70"
+                  />
+                </div>
+                <div className="pt-2">
+                  <Button
+                    type="button"
+                    onClick={handleCreate}
+                    disabled={!createForm.name.trim() || creating}
+                    className="w-full cursor-pointer"
+                  >
+                    {creating ? (
+                      <Loader2 className="mr-2 size-4 animate-spin" />
+                    ) : (
+                      <Plus className="mr-2 size-4" />
+                    )}
+                    Create board
+                  </Button>
+                </div>
+              </div>
+            </DialogContent>
+          </Dialog>
+        </div>
       }
     >
       <SignedOut>
@@ -123,66 +205,6 @@ export default function BoardsPage() {
       </SignedOut>
 
       <SignedIn>
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
-          <div className="grid gap-4 md:grid-cols-3">
-            <div className="md:col-span-1">
-              <h2 className="text-lg font-semibold text-white">Create board</h2>
-              <p className="text-sm text-indigo-100/70">Sends POST /api/boards.</p>
-            </div>
-            <div className="md:col-span-2 space-y-3">
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-1">
-                  <Label htmlFor="board-name">Name</Label>
-                  <Input
-                    id="board-name"
-                    value={createForm.name}
-                    onChange={(event) =>
-                      setCreateForm((prev) => ({ ...prev, name: event.target.value }))
-                    }
-                    placeholder="Backlog"
-                    className="bg-white/5 text-white placeholder:text-indigo-200/70"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="board-order">Visibility</Label>
-                  <Button
-                    type="button"
-                    variant={createForm.isPublic ? "secondary" : "outline"}
-                    className="w-full border-white/20 text-white"
-                    onClick={() =>
-                      setCreateForm((prev) => ({ ...prev, isPublic: !prev.isPublic }))
-                    }
-                  >
-                    {createForm.isPublic ? <Eye className="mr-2 size-4" /> : <EyeOff className="mr-2 size-4" />}
-                    {createForm.isPublic ? "Public" : "Private"}
-                  </Button>
-                </div>
-              </div>
-              <div className="space-y-1">
-                <Label htmlFor="board-description">Description</Label>
-                <Input
-                  id="board-description"
-                  value={createForm.description}
-                  onChange={(event) =>
-                    setCreateForm((prev) => ({ ...prev, description: event.target.value }))
-                  }
-                  placeholder="Notes about this board"
-                  className="bg-white/5 text-white placeholder:text-indigo-200/70"
-                />
-              </div>
-              <Button
-                type="button"
-                onClick={handleCreate}
-                disabled={!createForm.name.trim() || creating}
-                className="mt-2"
-              >
-                {creating ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Plus className="mr-2 size-4" />}
-                Create board
-              </Button>
-            </div>
-          </div>
-        </div>
-
         {error ? (
           <div className="mt-4 rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
             {error}

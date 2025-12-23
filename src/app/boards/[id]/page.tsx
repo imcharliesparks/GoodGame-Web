@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { SignedIn, SignedOut, SignInButton } from "@clerk/nextjs";
+import { SignedIn } from "@clerk/nextjs";
 import { ChevronLeft, Ellipsis, ExternalLink, Loader2, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/AppShell";
@@ -11,7 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
-import { fetchBoard, fetchBoardGames, addBoardGameClient, updateBoardGameClient, deleteBoardGameClient, reorderBoardGameClient } from "@/lib/client/boards";
+import { fetchBoard, fetchBoardGames, updateBoardGameClient, deleteBoardGameClient, reorderBoardGameClient } from "@/lib/client/boards";
 import { igdbImage } from "@/lib/igdbImage";
 import type { Board } from "@/lib/types/board";
 import type { BoardGameWithGame, GameStatus } from "@/lib/types/board-game";
@@ -35,14 +35,6 @@ export default function BoardDetailsPage() {
   const [isLoadingGames, setIsLoadingGames] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | undefined>();
   const [pendingGameId, setPendingGameId] = useState<string | null>(null);
-
-  const [addForm, setAddForm] = useState({
-    gameId: "",
-    status: "WISHLIST" as GameStatus,
-    rating: "",
-    notes: "",
-    order: "",
-  });
 
   const description =
     "View and manage board games via /api/boards/:id and nested board-games routes. Public boards load without auth; mutations require Clerk.";
@@ -87,27 +79,6 @@ export default function BoardDetailsPage() {
     loadBoard();
     loadBoardGames();
   }, [boardId]);
-
-  const handleAdd = async () => {
-    setPendingGameId("new");
-    setGamesError(null);
-    try {
-      const created = await addBoardGameClient({
-        boardId,
-        gameId: addForm.gameId.trim(),
-        status: addForm.status,
-        rating: addForm.rating ? Number(addForm.rating) : undefined,
-        notes: addForm.notes.trim() || undefined,
-        order: addForm.order ? Number(addForm.order) : undefined,
-      });
-      setGames((prev) => [{ ...created, game: null }, ...prev]);
-      setAddForm({ gameId: "", status: "WISHLIST", rating: "", notes: "", order: "" });
-    } catch (err) {
-      setGamesError(err instanceof Error ? err.message : "Failed to add board game.");
-    } finally {
-      setPendingGameId(null);
-    }
-  };
 
   const handleUpdateGame = async (gameId: string, updates: Partial<BoardGameWithGame>) => {
     setPendingGameId(gameId);
@@ -181,138 +152,7 @@ export default function BoardDetailsPage() {
         </Link>
       </div>
 
-      <div className="grid gap-6 md:grid-cols-[1.1fr_1fr]">
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
-          {boardError ? (
-            <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
-              {boardError}
-            </div>
-          ) : null}
-          {isLoadingBoard && !board ? (
-            <p className="text-sm text-indigo-100/70">Loading board details...</p>
-          ) : null}
-          {board ? (
-            <div className="space-y-3">
-              <div className="flex flex-wrap items-center gap-3">
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100">
-                  {board.isPublic ? "Public" : "Private"}
-                </span>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100">
-                  Order {board.order}
-                </span>
-                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-wide text-indigo-100">
-                  Created {formatDate(board.createdAt)}
-                </span>
-              </div>
-              <p className="text-sm text-indigo-100/80">{board.description || "No description."}</p>
-            </div>
-          ) : null}
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-indigo-950/30">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-lg font-semibold text-white">Add a game</h2>
-          </div>
-          <p className="text-sm text-indigo-100/70">POST /api/boards/:id/board-games</p>
-
-          <SignedOut>
-            <div className="mt-3 rounded-lg border border-white/10 bg-white/5 p-4 text-sm text-indigo-100/80">
-              Sign in to add or edit board games.
-              <div className="mt-2">
-                <SignInButton mode="modal">
-                  <Button size="sm">Sign in</Button>
-                </SignInButton>
-              </div>
-            </div>
-          </SignedOut>
-
-          <SignedIn>
-            <div className="mt-4 grid gap-3">
-              <div className="space-y-1">
-                <Label htmlFor="game-id">gameId</Label>
-                <Input
-                  id="game-id"
-                  value={addForm.gameId}
-                  onChange={(event) =>
-                    setAddForm((prev) => ({ ...prev, gameId: event.target.value }))
-                  }
-                  className="bg-white/5 text-white"
-                  placeholder="Cached game ObjectId"
-                />
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="space-y-1">
-                  <Label htmlFor="status">Status</Label>
-                  <select
-                    id="status"
-                    value={addForm.status}
-                    onChange={(event) =>
-                      setAddForm((prev) => ({ ...prev, status: event.target.value as GameStatus }))
-                    }
-                    className="h-10 rounded-md border border-white/10 bg-white/5 px-3 text-sm text-white"
-                  >
-                    {STATUSES.map((status) => (
-                      <option key={status} value={status} className="bg-slate-900 text-white">
-                        {status}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="rating">Rating</Label>
-                  <Input
-                    id="rating"
-                    type="number"
-                    value={addForm.rating}
-                    onChange={(event) =>
-                      setAddForm((prev) => ({ ...prev, rating: event.target.value }))
-                    }
-                    className="bg-white/5 text-white"
-                    placeholder="0-100"
-                  />
-                </div>
-                <div className="space-y-1">
-                  <Label htmlFor="order">Order</Label>
-                  <Input
-                    id="order"
-                    type="number"
-                    value={addForm.order}
-                    onChange={(event) =>
-                      setAddForm((prev) => ({ ...prev, order: event.target.value }))
-                    }
-                    className="bg-white/5 text-white"
-                    placeholder="Optional index"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1">
-                <Label htmlFor="notes">Notes</Label>
-                <Input
-                  id="notes"
-                  value={addForm.notes}
-                  onChange={(event) =>
-                    setAddForm((prev) => ({ ...prev, notes: event.target.value }))
-                  }
-                  className="bg-white/5 text-white"
-                  placeholder="Optional notes"
-                />
-              </div>
-
-              <Button
-                type="button"
-                onClick={handleAdd}
-                disabled={!addForm.gameId.trim() || pendingGameId === "new"}
-                className="mt-2"
-              >
-                {pendingGameId === "new" ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-                Add to board
-              </Button>
-            </div>
-          </SignedIn>
-        </div>
-      </div>
+     
 
       {gamesError ? (
         <div className="rounded-xl border border-red-500/40 bg-red-500/10 px-4 py-3 text-sm text-red-100">
