@@ -16,6 +16,10 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "GoodGame",
   description: "GoodGame frontend powered by the Argus backend",
+  themeColor: "#020617",
+  appleWebApp: {
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export default function RootLayout({
@@ -28,6 +32,7 @@ export default function RootLayout({
       <html lang="en">
         <body
           className={`${geistSans.variable} ${geistMono.variable} antialiased`}
+          style={{ backgroundColor: "#020617" }}
         >
           {children}
         </body>

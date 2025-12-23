@@ -325,9 +325,12 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent
-                  className="w-[calc(100vw-1.5rem)] max-w-[calc(100vw-1.5rem)] p-0 sm:w-auto sm:max-w-[520px]"
+                  className="p-0"
                   align="start"
-                  style={{ minWidth: "var(--radix-popper-anchor-width)" }}
+                  style={{
+                    width: "min(var(--radix-popper-anchor-width), calc(100vw - 1.5rem))",
+                  }}
+                  disableAutoFocus
                 >
                   <Command loop className="flex flex-col">
                     <CommandInput placeholder="Search boards..." />
@@ -355,11 +358,6 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
                               <span className="flex flex-col gap-0.5">
                                 <span className="flex items-center gap-2 font-semibold text-white">
                                   <span>{board.name}</span>
-                                  {boardMemberships[board.id] ? (
-                                    <span className="rounded-full border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] font-semibold uppercase tracking-wide text-emerald-100">
-                                      Already added
-                                    </span>
-                                  ) : null}
                                 </span>
                                 {board.description ? (
                                   <span className="text-xs text-indigo-100/70 line-clamp-1">
@@ -519,7 +517,17 @@ export function AddToBoardDialog({ game, onAdded, trigger }: Props) {
               className="w-full cursor-pointer"
             >
               {isSubmitting ? <Loader2 className="mr-2 size-4 animate-spin" /> : null}
-              Add game
+              {selectedBoardId && boardMemberships[selectedBoardId] ? (
+                <>
+                  <Check className="mr-2 size-4" />
+                  Added
+                </>
+              ) : (
+                <>
+                  <Plus className="mr-2 size-4" />
+                  Add game
+                </>
+              )}
             </Button>
             <SignedOut>
               <SignInButton mode="modal">

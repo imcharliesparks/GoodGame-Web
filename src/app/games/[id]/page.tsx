@@ -18,6 +18,20 @@ import {
 import { AddToBoardDialog } from "@/components/games/AddToBoardDialog";
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
+import {
+  Carousel,
+  CarouselContent,
+  CarouselItem,
+  CarouselNext,
+  CarouselPrevious,
+} from "@/components/ui/carousel";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { fetchGameById } from "@/lib/client/games";
 import { igdbImage } from "@/lib/igdbImage";
 import type { Game } from "@/lib/types/game";
@@ -242,27 +256,83 @@ function ScreenshotStrip({ screenshots, title }: { screenshots: string[]; title:
   const normalizedScreenshots = (screenshots ?? [])
     .map((url) => igdbImage(url))
     .filter((url): url is string => Boolean(url));
+  const [open, setOpen] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
   if (!normalizedScreenshots.length) return null;
   return (
     <div className="space-y-3">
-      <h2 className="text-lg font-semibold text-white">Screenshots</h2>
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-        {normalizedScreenshots.map((url, index) => (
-          <div
-            key={`${url}-${index}`}
-            className="overflow-hidden rounded-xl border border-white/10 bg-white/5"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img
-              src={url}
-              alt={`${title} screenshot ${index + 1}`}
-              className="h-48 w-full object-cover"
-              loading="lazy"
-              referrerPolicy="no-referrer"
-            />
-          </div>
-        ))}
+      <div className="flex items-center justify-between gap-2">
+        <h2 className="text-lg font-semibold text-white">Screenshots</h2>
+        {normalizedScreenshots.length > 1 ? (
+          <span className="text-xs uppercase tracking-wide text-indigo-100/60">
+            {normalizedScreenshots.length} images
+          </span>
+        ) : null}
       </div>
+      <Carousel className="w-full">
+        <CarouselContent className="-ml-2">
+          {normalizedScreenshots.map((url, index) => (
+            <CarouselItem key={`${url}-${index}`} className="pl-2 md:basis-1/2 lg:basis-1/3">
+              <button
+                type="button"
+                className="group block w-full cursor-pointer overflow-hidden rounded-xl border border-white/10 bg-white/5 transition hover:border-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+                onClick={() => {
+                  setActiveIndex(index);
+                  setOpen(true);
+                }}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={url}
+                  alt={`${title} screenshot ${index + 1}`}
+                  className="h-48 w-full object-cover sm:h-60 transition duration-500 group-hover:scale-[1.02]"
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                />
+              </button>
+            </CarouselItem>
+          ))}
+        </CarouselContent>
+        <CarouselPrevious />
+        <CarouselNext />
+      </Carousel>
+
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent className="w-full max-w-6xl border-white/15 bg-slate-950/95 text-white backdrop-blur sm:max-w-6xl">
+          <DialogHeader>
+            <DialogTitle className="text-lg font-semibold text-white">
+              {title} - Screenshots
+            </DialogTitle>
+          </DialogHeader>
+          <div className="relative">
+            <Carousel
+              className="w-full"
+              activeIndex={activeIndex}
+              onIndexChange={setActiveIndex}
+            >
+              <CarouselContent>
+                {normalizedScreenshots.map((url, index) => (
+                  <CarouselItem key={`${url}-${index}`}>
+                    <div className="overflow-hidden rounded-xl border border-white/10 bg-white/5">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img
+                        src={url}
+                        alt={`${title} screenshot ${index + 1}`}
+                        className="max-h-[70vh] w-full object-contain"
+                        loading="lazy"
+                        referrerPolicy="no-referrer"
+                      />
+                    </div>
+                  </CarouselItem>
+                ))}
+              </CarouselContent>
+              <CarouselPrevious />
+              <CarouselNext />
+            </Carousel>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
