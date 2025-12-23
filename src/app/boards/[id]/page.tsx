@@ -2,15 +2,15 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { SignedIn } from "@clerk/nextjs";
-import { ChevronLeft, Ellipsis, ExternalLink, Loader2, Trash2 } from "lucide-react";
+import { ChevronLeft, Ellipsis, Loader2, Trash2 } from "lucide-react";
 
 import { AppShell } from "@/components/layout/AppShell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/components/ui/sheet";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { fetchBoard, fetchBoardGames, updateBoardGameClient, deleteBoardGameClient, reorderBoardGameClient } from "@/lib/client/boards";
 import { igdbImage } from "@/lib/igdbImage";
 import type { Board } from "@/lib/types/board";
@@ -210,13 +210,14 @@ function BoardGameCard({
   onReorder: (gameId: string, order: number) => void;
   isSaving: boolean;
 }) {
+  const router = useRouter();
   const [draft, setDraft] = useState({
     status: boardGame.status,
     rating: boardGame.rating ?? "",
     notes: boardGame.notes ?? "",
     order: boardGame.order,
   });
-  const [isSheetOpen, setIsSheetOpen] = useState(false);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   useEffect(() => {
     setDraft({
@@ -235,8 +236,25 @@ function BoardGameCard({
     "t_720p",
   );
 
+  const navigateToGame = () => {
+    router.push(`/games/${boardGame.gameId}`);
+  };
+
+  const handleCardKeyDown = (event: React.KeyboardEvent<HTMLElement>) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      navigateToGame();
+    }
+  };
+
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-indigo-950/40 shadow-lg shadow-indigo-950/30">
+    <article
+      role="button"
+      tabIndex={0}
+      onClick={navigateToGame}
+      onKeyDown={handleCardKeyDown}
+      className="group relative cursor-pointer overflow-hidden rounded-2xl border border-white/10 bg-gradient-to-br from-slate-900/80 via-slate-900/60 to-indigo-950/40 shadow-lg shadow-indigo-950/30 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
+    >
       <div className="absolute inset-0 pointer-events-none bg-gradient-to-br from-white/5 via-transparent to-indigo-500/10 opacity-40 group-hover:opacity-60 transition" />
       <div className="relative aspect-[4/3] overflow-hidden">
         {previewUrl ? (
@@ -257,31 +275,29 @@ function BoardGameCard({
           </div>
         )}
         <div className="absolute right-3 top-3 flex items-center gap-2">
-          <Link
-            href={`/games/${boardGame.gameId}`}
-            className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90 backdrop-blur transition hover:bg-white/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400"
-          >
-            View <ExternalLink className="ml-1 inline-block size-3.5 align-middle" />
-          </Link>
           <SignedIn>
-            <Sheet open={isSheetOpen} onOpenChange={setIsSheetOpen}>
-              <SheetTrigger asChild>
+            <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+              <DialogTrigger asChild>
                 <Button
                   type="button"
                   size="icon"
                   variant="ghost"
                   className="h-9 w-9 rounded-full bg-white/5 backdrop-blur border border-white/10 text-white/80 hover:bg-white/10 hover:border-white/20 hover:text-white active:translate-y-[1px] active:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400 disabled:opacity-40 disabled:pointer-events-none transition"
                   aria-label="Edit board game"
+                  onClick={(event) => event.stopPropagation()}
                 >
                   <Ellipsis className="size-4" />
                 </Button>
-              </SheetTrigger>
-              <SheetContent side="right" className="bg-slate-950/90 text-white backdrop-blur-lg border-white/10">
-                <SheetHeader>
-                  <SheetTitle className="text-xl font-semibold">
+              </DialogTrigger>
+              <DialogContent
+                className="bg-slate-950/95 text-white backdrop-blur border border-white/10 sm:max-w-lg"
+                onClick={(event) => event.stopPropagation()}
+              >
+                <DialogHeader>
+                  <DialogTitle className="text-xl font-semibold text-white">
                     Edit {boardGame.game?.title ?? "game"}
-                  </SheetTitle>
-                </SheetHeader>
+                  </DialogTitle>
+                </DialogHeader>
                 <div className="mt-4 space-y-3">
                   <div className="space-y-1">
                     <Label>Status</Label>
@@ -334,8 +350,9 @@ function BoardGameCard({
                       variant="default"
                       className="bg-gradient-to-r from-indigo-500 to-purple-500 text-white hover:brightness-105"
                       disabled={isSaving}
-                      onClick={() => {
-                        setIsSheetOpen(false);
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsDialogOpen(false);
                         return onUpdate(boardGame.gameId, {
                           status: draft.status,
                           rating: draft.rating ? Number(draft.rating) : undefined,
@@ -348,9 +365,12 @@ function BoardGameCard({
                     </Button>
                     <Button
                       variant="outline"
-                      className="border-white/30 text-white hover:bg-white/10"
+                      className="border-white/30 bg-white text-black hover:bg-white/80"
                       disabled={isSaving}
-                      onClick={() => onReorder(boardGame.gameId, Number(draft.order) || 0)}
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        onReorder(boardGame.gameId, Number(draft.order) || 0);
+                      }}
                     >
                       Set order
                     </Button>
@@ -359,8 +379,9 @@ function BoardGameCard({
                     <Button
                       variant="destructive"
                       className="w-full gap-2"
-                      onClick={() => {
-                        setIsSheetOpen(false);
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setIsDialogOpen(false);
                         onDelete(boardGame.gameId);
                       }}
                       disabled={isSaving}
@@ -370,8 +391,8 @@ function BoardGameCard({
                     </Button>
                   </div>
                 </div>
-              </SheetContent>
-            </Sheet>
+              </DialogContent>
+            </Dialog>
           </SignedIn>
         </div>
         <div className="absolute bottom-3 left-3 flex flex-wrap items-center gap-2 text-xs text-indigo-100/90">

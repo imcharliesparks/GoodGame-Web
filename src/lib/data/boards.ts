@@ -17,6 +17,13 @@ export type BoardListInput = {
   cursor?: string;
 };
 
+export type UserBoardListInput = {
+  userId: string;
+  limit: number;
+  cursor?: string;
+  visibility?: "public" | "private" | "all";
+};
+
 export type CreateBoardInput = {
   name: string;
   description?: string;
@@ -87,6 +94,32 @@ export async function listBoards(
     query: {
       limit: input.limit,
       cursor: input.cursor,
+    },
+  });
+
+  const { nextCursor: rawNextCursor, ...rest } = data;
+  const nextCursor =
+    typeof rawNextCursor === "string" && rawNextCursor.length > 0
+      ? rawNextCursor
+      : undefined;
+
+  return nextCursor ? { ...rest, nextCursor } : rest;
+}
+
+export async function listBoardsByUser(
+  input: UserBoardListInput,
+  options: ArgusCallOptions = {},
+) {
+  const data = await argusRequestJson<
+    PaginatedResult<Board> & { nextCursor?: string | null }
+  >({
+    path: `/api/users/${encodeURIComponent(input.userId)}/boards`,
+    token: options.token,
+    cache: options.cache,
+    query: {
+      limit: input.limit,
+      cursor: input.cursor,
+      visibility: input.visibility ?? "public",
     },
   });
 
